@@ -5,13 +5,15 @@
 // datos y cola de ediciones sin conexión vive en index.html, no en el
 // service worker.
 
-const CACHE_NAME = 'stock-reportes-v2';
+const CACHE_NAME = 'stock-reportes-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
+  './icons/icon-monochrome.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png'
 ];
