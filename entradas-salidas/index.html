@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Entradas y Salidas de Stock</title>
+
+<!-- ===== PWA: instalación en el celular ===== -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#161513">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stock E/S">
+
+<style>
+  :root{
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f9f9f7;
+    --card:           #ffffff;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #8A6D00;
+    --series-1-ink:   #5C4400;
+    --good:           #0ca30c;
+    --critical:       #d03b3b;
+    --good-bg:        #e6f6e6;
+    --critical-bg:    #fbe9e9;
+    --warning-bg:     #fff6e0;
+    --series-1-rgb:   138,109,0;
+    --gold-bg:        #FBF0CE;
+    --ink-1:          #161513;
+    --ink-2:          #000000;
+    --shadow-sm:      0 1px 2px rgba(20,20,15,0.05), 0 1px 4px rgba(20,20,15,0.04);
+    --shadow-md:      0 8px 24px rgba(20,20,15,0.08), 0 2px 6px rgba(20,20,15,0.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--surface-2);color:var(--text-primary);}
+  .app-shell{max-width:560px;margin:0 auto;min-height:100vh;background:var(--surface-1);animation:appIn .4s ease;}
+  @keyframes appIn{from{opacity:0;}to{opacity:1;}}
+  @media(min-width:600px){
+    body{padding:28px 16px;}
+    .app-shell{min-height:0;border-radius:16px;box-shadow:var(--shadow-md);border:1px solid var(--gridline);overflow:hidden;}
+  }
+  header.appbar{position:relative;overflow:hidden;padding:22px 20px 20px;color:#fff;background:linear-gradient(135deg,var(--ink-1) 0%,var(--ink-2) 100%);border-bottom:2px solid var(--series-1);}
+  header.appbar::before{content:'';position:absolute;top:-46px;right:-36px;width:170px;height:170px;background:radial-gradient(circle,rgba(255,222,90,0.16) 0%,rgba(255,222,90,0) 70%);pointer-events:none;}
+  header.appbar::after{content:'';position:absolute;bottom:-64px;left:-28px;width:150px;height:150px;background:radial-gradient(circle,rgba(255,222,90,0.10) 0%,rgba(255,222,90,0) 70%);pointer-events:none;}
+  .appbar-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .appbar-title{display:flex;align-items:center;gap:12px;}
+  .appbar-icon{flex-shrink:0;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;padding:6px 9px;box-shadow:var(--shadow-sm);}
+  .appbar-icon img{display:block;height:26px;width:auto;}
+  header.appbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;color:#fff;}
+  header.appbar p{margin:4px 0 0;color:rgba(255,255,255,0.78);font-size:12.5px;}
+  .settings-btn{width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background-color .2s ease;}
+  .settings-btn:hover{background:rgba(255,255,255,0.28);}
+  .settings-btn svg{transition:transform .4s ease;}
+  .settings-btn:active svg{transform:rotate(70deg);}
+  section{padding:18px 16px 40px;}
+  .card{background:var(--card);border:1px solid var(--gridline);border-radius:14px;padding:18px;box-shadow:var(--shadow-sm);}
+  .field{margin-bottom:14px;}
+  .field label{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface-1);color:var(--text-primary);font-size:15px;font-family:inherit;transition:border-color .15s ease, box-shadow .15s ease;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--series-1);box-shadow:0 0 0 3px rgba(var(--series-1-rgb),0.15);}
+  textarea{resize:vertical;min-height:56px;}
+  .tabs{display:flex;gap:8px;margin-top:8px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:8px;border:2px solid var(--gridline);cursor:pointer;font-weight:600;font-size:14px;}
+  .tab.activo-entrada{border-color:var(--good);background:var(--good-bg);color:var(--good);}
+  .tab.activo-salida{border-color:var(--critical);background:var(--critical-bg);color:var(--critical);}
+  .stock-info{background:var(--surface-2);border:1px solid var(--gridline);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;display:none;}
+  .stock-info.bajo{background:var(--critical-bg);color:var(--critical);border-color:var(--critical);}
+  .submit-btn{width:100%;padding:14px;border:none;border-radius:10px;background:var(--series-1);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;box-shadow:var(--shadow-sm);transition:filter .15s ease, transform .05s ease;}
+  .submit-btn:hover:not(:disabled){filter:brightness(0.94);}
+  .submit-btn:active:not(:disabled){filter:brightness(0.88);transform:translateY(1px);}
+  .submit-btn:disabled{opacity:.6;cursor:default;}
+  .error-msg{background:var(--critical-bg);color:var(--critical);border:1px solid var(--critical);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px;display:none;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--good);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;z-index:50;box-shadow:0 6px 20px rgba(0,0,0,0.2);max-width:90vw;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--critical);}
+  .toast.warn{background:#8a6300;}
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{width:100%;max-width:360px;}
+  .login-logo{display:block;height:34px;width:auto;margin:0 0 18px;}
+  .login-card h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em;}
+  .login-card p{margin:0 0 20px;color:var(--text-secondary);font-size:13px;}
+  .setup-note{font-size:12px;color:var(--text-muted);line-height:1.5;background:var(--surface-2);border:1px solid var(--gridline);border-radius:8px;padding:10px 12px;margin-bottom:16px;}
+  .hidden{display:none !important;}
+
+  .conn-banner{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:14px;animation:slideDown .25s ease;}
+  .conn-banner.offline{background:var(--warning-bg);color:#8a6300;}
+  .conn-banner.pending{background:var(--gold-bg);color:var(--series-1-ink);}
+  .conn-banner .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+  .recientes-titulo{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px;}
+  .recientes-list{display:flex;flex-direction:column;gap:8px;}
+  .reciente-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--gridline);border-radius:9px;padding:9px 11px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;}
+  .reciente-item:hover{border-color:var(--series-1);box-shadow:var(--shadow-md);}
+  .reciente-tipo{flex-shrink:0;width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;}
+  .reciente-tipo.entrada{background:var(--good-bg);color:var(--good);}
+  .reciente-tipo.salida{background:var(--critical-bg);color:var(--critical);}
+  .reciente-info{flex:1;min-width:0;}
+  .reciente-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:var(--text-primary);}
+  .reciente-top .nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .reciente-bottom{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-muted);margin-top:1px;}
+  .reciente-item.pendiente{border-color:#8a6300;background:var(--warning-bg);}
+  .reciente-pend-tag{flex-shrink:0;font-size:10px;font-weight:700;color:#8a6300;text-transform:uppercase;letter-spacing:.03em;}
+  .recientes-empty{font-size:12.5px;color:var(--text-muted);padding:4px 0;}
+  .reciente-delete{flex-shrink:0;width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .15s ease,color .15s ease;}
+  .reciente-delete:hover{background:var(--critical-bg);color:var(--critical);}
+  .reciente-delete:disabled{opacity:.4;cursor:default;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,20,15,0.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s ease,visibility 0s linear .22s;}
+  .modal-overlay.visible{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .22s ease,visibility 0s linear 0s;}
+  .modal-card{background:var(--card);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;padding:20px;position:relative;box-shadow:0 16px 40px rgba(20,20,15,0.22);transform:translateY(16px) scale(.96);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease;}
+  .modal-overlay.visible .modal-card{transform:translateY(0) scale(1);opacity:1;}
+  .modal-close{position:absolute;top:12px;right:12px;border:1px solid var(--gridline);background:var(--surface-2);color:var(--text-primary);width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;line-height:1;transition:background-color .15s ease;}
+  .modal-close:hover{background:var(--gridline);}
+  .modal-title{font-size:17px;font-weight:700;margin:0 0 2px;padding-right:34px;letter-spacing:-.01em;}
+  .modal-subtitle{font-size:12.5px;color:var(--text-secondary);margin:0 0 16px;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ============ SETUP ============ -->
+  <div id="setup-screen" class="login-wrap hidden">
+    <div class="login-card card">
+      <img src="icons/logo-header.png" alt="Control de Stock" class="login-logo">
+      <h1>Configuración inicial</h1>
+      <p>Esto se hace una sola vez en este celular/PC.</p>
+      <div class="setup-note">
+        Necesitás la URL de la aplicación web de Google Apps Script conectada
+        a la planilla de stock. La obtenés desde la hoja:
+        <b>Extensiones → Apps Script → Implementar → Administrar
+        implementaciones</b>. Pegá acá la URL que termina en <b>/exec</b>.
+        Si ya configuraste la app de Reportes en este mismo teléfono, se usa
+        la misma URL automáticamente.
+      </div>
+      <div class="error-msg" id="setup-error"></div>
+      <form id="setup-form">
+        <div class="field">
+          <label>URL de la app web (Google Apps Script)</label>
+          <input type="url" id="s-url" placeholder="https://script.google.com/macros/s/.../exec" required>
+        </div>
+        <button type="submit" class="submit-btn" id="setup-btn">Guardar y continuar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app-screen" class="hidden">
+    <header class="appbar">
+      <div class="appbar-top">
+        <div class="appbar-title">
+          <span class="appbar-icon">
+            <img src="icons/logo-header.png" alt="Control de Stock">
+          </span>
+          <div>
+            <h1>Entradas y Salidas</h1>
+            <p>Registrá cada movimiento de stock apenas ocurre</p>
+          </div>
+        </div>
+        <button class="settings-btn" onclick="resetWebAppUrl()" title="Configuración" aria-label="Configuración">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="white" stroke-width="2"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="white" stroke-width="1.6"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section>
+      <div id="conn-banner" class="conn-banner hidden"></div>
+      <div class="error-msg" id="form-error"></div>
+
+      <div class="card">
+        <form id="mov-form">
+          <div class="field">
+            <label>Ítem</label>
+            <select id="c-item" required><option value="">Cargando ítems...</option></select>
+            <div class="stock-info" id="stock-info"></div>
+          </div>
+
+          <div class="field">
+            <label>Tipo de movimiento</label>
+            <div class="tabs">
+              <div class="tab activo-entrada" id="tab-entrada" onclick="elegirTipo('Entrada')">Entrada</div>
+              <div class="tab" id="tab-salida" onclick="elegirTipo('Salida')">Salida</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Cantidad</label>
+            <input type="number" id="c-cantidad" min="0.01" step="any" inputmode="decimal" required>
+          </div>
+
+          <div class="field">
+            <label>Tu nombre</label>
+            <input type="text" id="c-usuario" list="lista-usuarios" autocomplete="off" placeholder="Quién carga el movimiento">
+            <datalist id="lista-usuarios"></datalist>
+          </div>
+
+          <div class="field">
+            <label>Motivo / observación (opcional)</label>
+            <textarea id="c-motivo" rows="2" placeholder="Ej: compra a proveedor, uso en producción..."></textarea>
+          </div>
+
+          <button type="submit" class="submit-btn" id="submit-btn">Registrar movimiento</button>
+        </form>
+      </div>
+
+      <div class="recientes-titulo">Últimos movimientos</div>
+      <div class="recientes-list" id="recientes-list"></div>
+    </section>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="edit-modal" onclick="if(event.target===this) cerrarModalEdicion()">
+  <div class="modal-card">
+    <button class="modal-close" type="button" onclick="cerrarModalEdicion()">✕</button>
+    <div class="modal-title">Editar movimiento</div>
+    <div class="modal-subtitle" id="edit-subtitle"></div>
+    <div class="error-msg" id="edit-error"></div>
+    <form id="edit-form">
+      <div class="field">
+        <label>Ítem</label>
+        <select id="e-item" required></select>
+      </div>
+      <div class="field">
+        <label>Tipo de movimiento</label>
+        <div class="tabs">
+          <div class="tab" id="e-tab-entrada" onclick="elegirTipoEdicion('Entrada')">Entrada</div>
+          <div class="tab" id="e-tab-salida" onclick="elegirTipoEdicion('Salida')">Salida</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Cantidad</label>
+        <input type="number" id="e-cantidad" min="0.01" step="any" inputmode="decimal" required>
+      </div>
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="e-usuario" list="lista-usuarios" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Motivo / observación</label>
+        <textarea id="e-motivo" rows="2"></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="edit-save-btn">Guardar cambios</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ---------- almacenamiento local ----------
+  // Misma clave que usa la app de Reportes: si ya está configurada en este
+  // teléfono, esta app la hereda sola sin volver a pedirla.
+  const WEBAPP_URL_KEY  = 'stock_webapp_url';
+  const DATA_CACHE_KEY  = 'stock_es_cache';        // último listado visto (para sugerencias offline)
+  const PENDING_KEY     = 'stock_pending_altas';   // movimientos registrados sin conexión, sin subir todavía
+  const PENDING_DEL_KEY = 'stock_pending_borrados';// IDs para borrar sin conexión, sin borrar todavía
+  const PENDING_EDIT_KEY = 'stock_pending_ediciones'; // ediciones sin conexión, sin subir todavía
+
+  function getWebAppUrl(){ return localStorage.getItem(WEBAPP_URL_KEY); }
+  function setWebAppUrl(u){ localStorage.setItem(WEBAPP_URL_KEY, u); }
+
+  function getPendientes(){ try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || []; } catch(e){ return []; } }
+  function setPendientes(list){ localStorage.setItem(PENDING_KEY, JSON.stringify(list)); }
+
+  function getPendientesBorrado(){ try { return JSON.parse(localStorage.getItem(PENDING_DEL_KEY)) || []; } catch(e){ return []; } }
+  function setPendientesBorrado(list){ localStorage.setItem(PENDING_DEL_KEY, JSON.stringify(list)); }
+
+  function getPendientesEdicion(){ try { return JSON.parse(localStorage.getItem(PENDING_EDIT_KEY)) || []; } catch(e){ return []; } }
+  function setPendientesEdicion(list){ localStorage.setItem(PENDING_EDIT_KEY, JSON.stringify(list)); }
+
+  function esErrorDeRed(ex){
+    if(!navigator.onLine) return true;
+    if(ex instanceof TypeError) return true;
+    if(ex && /failed to fetch|network|load failed/i.test(ex.message||'')) return true;
+    return false;
+  }
+
+  // ---------- llamadas a la app web de Apps Script ----------
+  async function obtenerDatos(){
+    const url = getWebAppUrl();
+    const res = await fetch(url, { method: 'GET' });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudieron obtener los datos.');
+    return { items: data.items || [], movimientos: data.movimientos || [] };
+  }
+
+  async function registrarRemoto(fields){
+    const url = getWebAppUrl();
+    // Content-Type: text/plain evita que el navegador dispare un preflight
+    // CORS que Apps Script no siempre responde bien.
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: 'registrar' }, fields))
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo guardar el movimiento.');
+    return data;
+  }
+
+  async function editarRemoto(id, fields){
+    const url = getWebAppUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: 'editar', id }, fields))
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo guardar el cambio.');
+    return data;
+  }
+
+  async function eliminarRemoto(id){
+    const url = getWebAppUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'eliminar', id })
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo eliminar el movimiento.');
+    return data;
+  }
+
+  // ---------- flujo de pantallas ----------
+  function mostrarPantalla(id){
+    ['setup-screen','app-screen'].forEach(x=>{
+      document.getElementById(x).classList.toggle('hidden', x!==id);
+    });
+  }
+
+  function iniciar(){
+    if(!getWebAppUrl()){ mostrarPantalla('setup-screen'); return; }
+    mostrarPantalla('app-screen');
+    document.getElementById('recientes-list').innerHTML = '<div class="recientes-empty">Cargando...</div>';
+    cargarDatos();
+    actualizarBannerConexion();
+  }
+
+  function resetWebAppUrl(){
+    mostrarPantalla('setup-screen');
+    document.getElementById('setup-error').style.display = 'none';
+    document.getElementById('s-url').value = getWebAppUrl() || '';
+    document.getElementById('setup-btn').disabled = false;
+    document.getElementById('setup-btn').textContent = 'Guardar y continuar';
+  }
+
+  document.getElementById('setup-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const err = document.getElementById('setup-error');
+    err.style.display = 'none';
+    const btn = document.getElementById('setup-btn');
+    const url = document.getElementById('s-url').value.trim();
+    if(!url) return;
+    btn.disabled = true; btn.textContent = 'Verificando...';
+    try{
+      const res = await fetch(url, { method: 'GET' });
+      if(!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.error || 'La URL respondió pero con un error.');
+      setWebAppUrl(url);
+      mostrarPantalla('app-screen');
+      cargarDatos();
+      actualizarBannerConexion();
+    }catch(ex){
+      btn.disabled = false; btn.textContent = 'Guardar y continuar';
+      err.textContent = 'No se pudo conectar con esa URL: ' + ex.message + '. Revisá que sea la URL de "Implementación" (termina en /exec) y que el acceso esté configurado como "Cualquier usuario".';
+      err.style.display = 'block';
+    }
+  });
+
+  // ---------- tipo de movimiento (formulario principal) ----------
+  let tipoActual = 'Entrada';
+  function elegirTipo(t){
+    tipoActual = t;
+    document.getElementById('tab-entrada').className = 'tab' + (t==='Entrada' ? ' activo-entrada' : '');
+    document.getElementById('tab-salida').className = 'tab' + (t==='Salida' ? ' activo-salida' : '');
+    mostrarInfoStock();
+  }
+
+  // ---------- catálogo de ítems y sugerencias ----------
+  let ITEMS_POR_CODIGO = {};
+  let ULTIMOS_MOVIMIENTOS = [];
+
+  function stockDeItem_(codigo){
+    const it = ITEMS_POR_CODIGO[codigo];
+    return it ? it.stockActual : null;
+  }
+
+  function aplicarEdicionesPendientesLocal_(movs){
+    const ediciones = getPendientesEdicion();
+    if(!ediciones.length) return movs;
+    const porId = {};
+    ediciones.forEach(e => { porId[e.id] = e.fields; });
+    return movs.map(m => porId[m.id] ? Object.assign({}, m, porId[m.id]) : m);
+  }
+
+  function llenarSelectItems_(selectId, seleccionActual){
+    const sel = document.getElementById(selectId);
+    const codigos = Object.keys(ITEMS_POR_CODIGO).sort((a,b)=> (ITEMS_POR_CODIGO[a].nombre||'').localeCompare(ITEMS_POR_CODIGO[b].nombre||''));
+    sel.innerHTML = '<option value="">Seleccioná un ítem...</option>' + codigos.map(c=>{
+      const it = ITEMS_POR_CODIGO[c];
+      return `<option value="${escAttr_(c)}">${escHtml_(c)} - ${escHtml_(it.nombre)}</option>`;
+    }).join('');
+    if(seleccionActual) sel.value = seleccionActual;
+  }
+
+  function llenarDatalistUsuarios_(movs){
+    const vistos = new Set();
+    const out = [];
+    for(let i = movs.length - 1; i >= 0 && out.length < 20; i--){
+      const v = String(movs[i].usuario || '').trim();
+      if(v && !vistos.has(v)){ vistos.add(v); out.push(v); }
+    }
+    document.getElementById('lista-usuarios').innerHTML = out.map(v => `<option value="${escAttr_(v)}">`).join('');
+  }
+
+  function aplicarDatos(items, movimientos){
+    ITEMS_POR_CODIGO = {};
+    items.forEach(it => { ITEMS_POR_CODIGO[it.codigo] = it; });
+    ULTIMOS_MOVIMIENTOS = aplicarEdicionesPendientesLocal_(movimientos);
+    const seleccionPrevia = document.getElementById('c-item').value;
+    llenarSelectItems_('c-item', seleccionPrevia);
+    llenarDatalistUsuarios_(ULTIMOS_MOVIMIENTOS);
+    mostrarInfoStock();
+    renderRecientes();
+  }
+
+  document.getElementById('c-item').addEventListener('change', mostrarInfoStock);
+
+  function mostrarInfoStock(){
+    const codigo = document.getElementById('c-item').value;
+    const info = document.getElementById('stock-info');
+    const it = ITEMS_POR_CODIGO[codigo];
+    if(!it){ info.style.display = 'none'; return; }
+    const bajo = it.stockActual <= it.stockMinimo;
+    info.className = 'stock-info' + (bajo ? ' bajo' : '');
+    info.style.display = 'block';
+    info.textContent = 'Stock actual: ' + it.stockActual + ' ' + (it.unidad||'') + ' — Mínimo: ' + it.stockMinimo + (bajo ? ' (¡bajo mínimo!)' : '');
+  }
+
+  // ---------- "Últimos movimientos": para verificar de un vistazo ----------
+  const CANTIDAD_RECIENTES = 8;
+
+  function escHtml_(v){ return (v == null ? '' : String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function escAttr_(v){ return escHtml_(v); }
+
+  function claveOrdenMov_(m){
+    return String(m.fechaHora || '') + '|' + String(m.id || '');
+  }
+
+  function renderRecientes(){
+    const cont = document.getElementById('recientes-list');
+    const borradosPendientes = new Set(getPendientesBorrado());
+    const pendientesEnCurso = getPendientes().map(p => Object.assign({}, p.fields, { __pendiente: true, __localId: p.localId, fechaHora: p.creadoEn }));
+    const delServidor = ULTIMOS_MOVIMIENTOS.filter(m => !borradosPendientes.has(m.id)).map(m => Object.assign({}, m, { __pendiente: false }));
+    const combinados = pendientesEnCurso.concat(delServidor);
+    const ordenados = combinados
+      .filter(m => m && m.codigo)
+      .sort((a,b) => claveOrdenMov_(b).localeCompare(claveOrdenMov_(a)))
+      .slice(0, CANTIDAD_RECIENTES);
+
+    if(!ordenados.length){
+      cont.innerHTML = '<div class="recientes-empty">Todavía no hay movimientos cargados.</div>';
+      return;
+    }
+
+    cont.innerHTML = ordenados.map(m => {
+      const esEntrada = m.tipo === 'Entrada';
+      const nombre = m.nombre || (ITEMS_POR_CODIGO[m.codigo] ? ITEMS_POR_CODIGO[m.codigo].nombre : m.codigo);
+      const pend = m.__pendiente ? ' pendiente' : '';
+      const tag = m.__pendiente ? '<span class="reciente-pend-tag">Sin subir</span>' : '';
+      const dataAttrs = m.__pendiente ? `data-localid="${escAttr_(m.__localId)}"` : `data-id="${escAttr_(m.id)}"`;
+      const fechaTxt = fechaVisualCorta_(m.fechaHora);
+      return `<div class="reciente-item${pend}" ${dataAttrs}>
+        <div class="reciente-tipo ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}</div>
+        <div class="reciente-info">
+          <div class="reciente-top"><span class="nom">${escHtml_(nombre)}</span>${tag}</div>
+          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}</span><span>${fechaTxt}</span></div>
+        </div>
+        <button type="button" class="reciente-delete" ${dataAttrs} data-resumen="${escAttr_(m.tipo + ' de ' + nombre)}" title="Eliminar" aria-label="Eliminar">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  function fechaVisualCorta_(f){
+    const m = String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
+    if(m) return `${m[3]}/${m[2]} ${m[4]}`;
+    return f || '';
+  }
+
+  document.getElementById('recientes-list').addEventListener('click', async function(e){
+    const btn = e.target.closest('.reciente-delete');
+    if(!btn){
+      const item = e.target.closest('.reciente-item');
+      if(item) abrirEdicion(item.dataset.id, item.dataset.localid);
+      return;
+    }
+    const id = btn.dataset.id;
+    const localId = btn.dataset.localid;
+    const resumen = btn.dataset.resumen || 'este movimiento';
+    if(!confirm(`¿Eliminar ${resumen}? No se puede deshacer.`)) return;
+
+    if(localId){
+      setPendientes(getPendientes().filter(p => p.localId !== localId));
+      renderRecientes();
+      showToast('Movimiento eliminado de la cola');
+      return;
+    }
+
+    btn.disabled = true;
+    try{
+      await eliminarRemoto(id);
+      ULTIMOS_MOVIMIENTOS = ULTIMOS_MOVIMIENTOS.filter(m => m.id !== id);
+      await cargarDatos(true);
+      showToast('Movimiento eliminado');
+    }catch(ex){
+      if(esErrorDeRed(ex)){
+        encolarBorrado(id);
+        renderRecientes();
+        actualizarBannerConexion();
+        showToast('Sin conexión: se va a eliminar apenas vuelva internet', false, true);
+      } else {
+        btn.disabled = false;
+        showToast('No se pudo eliminar: ' + ex.message, true);
+      }
+    }
+  });
+
+  // ---------- editar un movimiento ya cargado ----------
+  let EDITANDO = null;
+  let tipoEdicionActual = 'Entrada';
+
+  function elegirTipoEdicion(t){
+    tipoEdicionActual = t;
+    document.getElementById('e-tab-entrada').className = 'tab' + (t==='Entrada' ? ' activo-entrada' : '');
+    document.getElementById('e-tab-salida').className = 'tab' + (t==='Salida' ? ' activo-salida' : '');
+  }
+
+  function abrirEdicion(id, localId){
+    let m = null;
+    if(localId){
+      const p = getPendientes().find(p => p.localId === localId);
+      if(!p) return;
+      m = p.fields;
+      EDITANDO = { localId };
+    } else {
+      m = ULTIMOS_MOVIMIENTOS.find(m => m.id === id);
+      if(!m) return;
+      EDITANDO = { id };
+    }
+
+    document.getElementById('edit-error').style.display = 'none';
+    document.getElementById('edit-subtitle').textContent = localId
+      ? 'Todavía sin subir — se corrige en el teléfono.'
+      : `${m.tipo} · ${m.nombre || m.codigo}`;
+
+    llenarSelectItems_('e-item', m.codigo);
+    elegirTipoEdicion(m.tipo || 'Entrada');
+    document.getElementById('e-cantidad').value = m.cantidad != null ? m.cantidad : '';
+    document.getElementById('e-usuario').value = m.usuario || '';
+    document.getElementById('e-motivo').value = m.motivo || '';
+
+    const btn = document.getElementById('edit-save-btn');
+    btn.disabled = false; btn.textContent = 'Guardar cambios';
+    document.getElementById('edit-modal').classList.add('visible');
+  }
+
+  function cerrarModalEdicion(){
+    document.getElementById('edit-modal').classList.remove('visible');
+    EDITANDO = null;
+  }
+
+  function leerCamposEdicion_(){
+    return {
+      codigo: document.getElementById('e-item').value,
+      tipo: tipoEdicionActual,
+      cantidad: Number(document.getElementById('e-cantidad').value),
+      usuario: document.getElementById('e-usuario').value.trim(),
+      motivo: document.getElementById('e-motivo').value.trim()
+    };
+  }
+
+  document.getElementById('edit-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    if(!EDITANDO) return;
+    const err = document.getElementById('edit-error');
+    err.style.display = 'none';
+    const fields = leerCamposEdicion_();
+    if(!fields.codigo){ err.textContent = 'Elegí un ítem.'; err.style.display = 'block'; return; }
+    if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
+
+    if(EDITANDO.localId){
+      const pendientes = getPendientes();
+      const item = pendientes.find(p => p.localId === EDITANDO.localId);
+      if(item) item.fields = fields;
+      setPendientes(pendientes);
+      cerrarModalEdicion();
+      renderRecientes();
+      showToast('Cambios guardados en la cola');
+      return;
+    }
+
+    const btn = document.getElementById('edit-save-btn');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const id = EDITANDO.id;
+    try{
+      await editarRemoto(id, fields);
+      cerrarModalEdicion();
+      await cargarDatos(true);
+      showToast('Movimiento actualizado');
+    }catch(ex){
+      if(esErrorDeRed(ex)){
+        encolarEdicion(id, fields);
+        ULTIMOS_MOVIMIENTOS = ULTIMOS_MOVIMIENTOS.map(m => m.id === id ? Object.assign({}, m, fields) : m);
+        cerrarModalEdicion();
+        renderRecientes();
+        actualizarBannerConexion();
+        showToast('Sin conexión: los cambios se suben solos apenas vuelva internet', false, true);
+      } else {
+        btn.disabled = false; btn.textContent = 'Guardar cambios';
+        err.textContent = 'No se pudo guardar: ' + ex.message;
+        err.style.display = 'block';
+      }
+    }
+  });
+
+  // ---------- cola offline de ediciones ----------
+  function encolarEdicion(id, fields){
+    const pendientes = getPendientesEdicion().filter(p => p.id !== id);
+    pendientes.push({ id, fields, creadoEn: new Date().toISOString() });
+    setPendientesEdicion(pendientes);
+  }
+
+  let flushEdicionesEnCurso = false;
+  async function sincronizarEdiciones(silencioso){
+    if(flushEdicionesEnCurso) return;
+    const pendientes = getPendientesEdicion();
+    if(!pendientes.length) return;
+    flushEdicionesEnCurso = true;
+
+    let subieron = 0, cortarPorRed = false;
+    const restantes = [];
+    for(const item of pendientes){
+      if(cortarPorRed){ restantes.push(item); continue; }
+      try{ await editarRemoto(item.id, item.fields); subieron++; }
+      catch(ex){
+        if(esErrorDeRed(ex)){ cortarPorRed = true; restantes.push(item); }
+      }
+    }
+    setPendientesEdicion(restantes);
+    flushEdicionesEnCurso = false;
+    if(subieron > 0 && !silencioso) showToast(subieron === 1 ? 'Se subió 1 edición pendiente' : `Se subieron ${subieron} ediciones pendientes`);
+  }
+
+  // ---------- envío del formulario principal ----------
+  function leerCampos_(){
+    return {
+      codigo: document.getElementById('c-item').value,
+      tipo: tipoActual,
+      cantidad: Number(document.getElementById('c-cantidad').value),
+      usuario: document.getElementById('c-usuario').value.trim(),
+      motivo: document.getElementById('c-motivo').value.trim()
+    };
+  }
+
+  function limpiarParaSiguiente_(){
+    document.getElementById('c-cantidad').value = '';
+    document.getElementById('c-motivo').value = '';
+    document.getElementById('c-cantidad').focus();
+  }
+
+  document.getElementById('mov-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const err = document.getElementById('form-error');
+    err.style.display = 'none';
+    const btn = document.getElementById('submit-btn');
+    const fields = leerCampos_();
+    if(!fields.codigo){ err.textContent = 'Elegí un ítem.'; err.style.display = 'block'; return; }
+    if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
+
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try{
+      const resultado = await registrarRemoto(fields);
+      showToast((fields.tipo==='Entrada'?'Entrada':'Salida') + ' registrada. Nuevo stock: ' + resultado.nuevoStock);
+      await cargarDatos(true);
+      limpiarParaSiguiente_();
+    }catch(ex){
+      if(esErrorDeRed(ex)){
+        encolarCarga(fields);
+        showToast('Sin conexión: el movimiento quedó guardado en el teléfono y se sube solo cuando vuelva internet', false, true);
+        actualizarBannerConexion();
+        renderRecientes();
+        limpiarParaSiguiente_();
+      } else {
+        err.textContent = 'No se pudo guardar: ' + ex.message;
+        err.style.display = 'block';
+      }
+    }finally{
+      btn.disabled = false; btn.textContent = 'Registrar movimiento';
+    }
+  });
+
+  // ---------- cola offline: ningún movimiento cargado se pierde ----------
+  function encolarCarga(fields){
+    const pendientes = getPendientes();
+    pendientes.push({ localId: 'p' + Date.now() + Math.random().toString(36).slice(2), fields, creadoEn: new Date().toISOString() });
+    setPendientes(pendientes);
+  }
+
+  let flushEnCurso = false;
+  async function sincronizarPendientes(silencioso){
+    if(flushEnCurso) return;
+    const pendientes = getPendientes();
+    if(!pendientes.length) return;
+    flushEnCurso = true;
+
+    let subieron = 0, cortarPorRed = false;
+    const restantes = [];
+    for(const item of pendientes){
+      if(cortarPorRed){ restantes.push(item); continue; }
+      try{ await registrarRemoto(item.fields); subieron++; }
+      catch(ex){
+        if(esErrorDeRed(ex)){ cortarPorRed = true; restantes.push(item); }
+        else { item.errorMsg = ex.message || 'Error desconocido'; restantes.push(item); }
+      }
+    }
+    setPendientes(restantes);
+    flushEnCurso = false;
+    if(subieron > 0 && !silencioso) showToast(subieron === 1 ? 'Se subió 1 movimiento pendiente' : `Se subieron ${subieron} movimientos pendientes`);
+  }
+
+  // ---------- cola offline de borrados ----------
+  function encolarBorrado(id){
+    const pendientes = getPendientesBorrado();
+    if(!pendientes.includes(id)) pendientes.push(id);
+    setPendientesBorrado(pendientes);
+  }
+
+  let flushBorradosEnCurso = false;
+  async function sincronizarBorrados(silencioso){
+    if(flushBorradosEnCurso) return;
+    const pendientes = getPendientesBorrado();
+    if(!pendientes.length) return;
+    flushBorradosEnCurso = true;
+
+    let borrados = 0, cortarPorRed = false;
+    const restantes = [];
+    for(const id of pendientes){
+      if(cortarPorRed){ restantes.push(id); continue; }
+      try{ await eliminarRemoto(id); borrados++; }
+      catch(ex){ if(esErrorDeRed(ex)){ cortarPorRed = true; restantes.push(id); } }
+    }
+    setPendientesBorrado(restantes);
+    flushBorradosEnCurso = false;
+    if(borrados > 0 && !silencioso) showToast(borrados === 1 ? 'Se eliminó 1 movimiento pendiente' : `Se eliminaron ${borrados} movimientos pendientes`);
+  }
+
+  // ---------- carga de datos (con caché offline) ----------
+  async function cargarDatos(silencioso){
+    try{
+      const { items, movimientos } = await obtenerDatos();
+      localStorage.setItem(DATA_CACHE_KEY, JSON.stringify({ items, movimientos, ts: new Date().toISOString() }));
+      aplicarDatos(items, movimientos);
+      await sincronizarPendientes(true);
+      await sincronizarBorrados(true);
+      await sincronizarEdiciones(true);
+      if(!silencioso) actualizarBannerConexion();
+    }catch(ex){
+      const cacheRaw = localStorage.getItem(DATA_CACHE_KEY);
+      if(cacheRaw){
+        try{ const c = JSON.parse(cacheRaw); aplicarDatos(c.items||[], c.movimientos||[]); }catch(e2){}
+      }
+    }
+  }
+
+  function actualizarBannerConexion(){
+    const banner = document.getElementById('conn-banner');
+    const pendientes = getPendientes();
+    const borrados = getPendientesBorrado();
+    const ediciones = getPendientesEdicion();
+    const totalPend = pendientes.length + borrados.length + ediciones.length;
+    if(!navigator.onLine){
+      banner.className = 'conn-banner offline';
+      banner.innerHTML = `<span class="dot"></span> Sin conexión${totalPend ? ' · ' + totalPend + ' cambio(s) sin subir todavía' : ' — los movimientos que cargues se guardan en el teléfono'}`;
+      banner.classList.remove('hidden');
+    } else if(totalPend){
+      banner.className = 'conn-banner pending';
+      banner.innerHTML = `<span class="dot"></span> Sincronizando ${totalPend} cambio(s) pendiente(s)...`;
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  window.addEventListener('online', ()=>{ actualizarBannerConexion(); sincronizarPendientes().then(()=>sincronizarBorrados()).then(()=>sincronizarEdiciones()).then(()=>cargarDatos()); });
+  window.addEventListener('offline', actualizarBannerConexion);
+  setInterval(()=>{
+    if(navigator.onLine){ cargarDatos(true); }
+    actualizarBannerConexion();
+  }, 30000);
+
+  function showToast(msg, isError, isWarn){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : (isWarn ? ' warn' : ''));
+    setTimeout(()=>t.classList.remove('show'), isWarn ? 4000 : 2500);
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') cerrarModalEdicion();
+  });
+
+  // ---------- service worker: permite abrir la app sin conexión ----------
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('./sw.js').then((reg)=>{
+        reg.update().catch(()=>{});
+      }).catch(()=>{ /* si falla, la app sigue funcionando igual */ });
+    });
+  }
+
+  iniciar();
+</script>
+</body>
+</html>
