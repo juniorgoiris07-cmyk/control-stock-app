@@ -230,12 +230,24 @@
             <label>Hasta</label>
             <input type="date" id="f-hasta">
           </div>
-          <div class="field full" style="margin-bottom:0;">
+          <div class="field" style="margin-bottom:0;">
             <label>Tipo</label>
             <select id="f-tipo">
               <option value="">Todos</option>
               <option value="Entrada">Entradas</option>
               <option value="Salida">Salidas</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Sector</label>
+            <select id="f-sector">
+              <option value="">Todos</option>
+              <option value="Planta">Planta</option>
+              <option value="Cocina">Cocina</option>
+              <option value="Oficina">Oficina</option>
+              <option value="Prelimpieza">Prelimpieza</option>
+              <option value="Patio">Patio</option>
+              <option value="Exportación">Exportación</option>
             </select>
           </div>
         </div>
@@ -523,7 +535,7 @@
     renderHistorial();
     searchHistEl.focus();
   });
-  ['f-desde','f-hasta','f-tipo'].forEach(id=> document.getElementById(id).addEventListener('change', renderHistorial));
+  ['f-desde','f-hasta','f-tipo','f-sector'].forEach(id=> document.getElementById(id).addEventListener('change', renderHistorial));
 
   function fechaVisual_(f){
     const m = String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
@@ -536,9 +548,11 @@
     const desde = document.getElementById('f-desde').value;
     const hasta = document.getElementById('f-hasta').value;
     const tipo = document.getElementById('f-tipo').value;
+    const sector = document.getElementById('f-sector').value;
 
     let filtrados = [...MOVIMIENTOS];
     if(tipo) filtrados = filtrados.filter(m => m.tipo === tipo);
+    if(sector) filtrados = filtrados.filter(m => m.sector === sector);
     if(desde) filtrados = filtrados.filter(m => (m.fechaHora||'') >= desde);
     if(hasta) filtrados = filtrados.filter(m => (m.fechaHora||'') <= hasta + ' 23:59');
     if(termino) filtrados = filtrados.filter(m =>
@@ -566,7 +580,7 @@
       item.className = 'historial-item';
       item.innerHTML = `
         <div class="hi-top"><span>${escHtml_(m.nombre||m.codigo)}</span><span class="hi-fecha">${fechaVisual_(m.fechaHora)}</span></div>
-        <div class="hi-bottom"><span class="hi-cant ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}${m.cantidad} ${escHtml_(unidad)}</span><span>${escHtml_(m.usuario||'—')}</span></div>
+        <div class="hi-bottom"><span class="hi-cant ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}${m.cantidad} ${escHtml_(unidad)}${m.sector ? ' · '+escHtml_(m.sector) : ''}</span><span>${escHtml_(m.usuario||'—')}</span></div>
       `;
       item.addEventListener('click', ()=> abrirModalMovimiento(m));
       cont.appendChild(item);
@@ -582,6 +596,7 @@
       <div class="modal-subtitle">${m.tipo} · ${fechaVisual_(m.fechaHora)}</div>
       ${pendiente ? '<div class="error-msg" style="display:block;background:var(--warning-bg);color:#8a6300;border-color:#8a6300;">Este cambio todavía no se subió a la planilla — se subirá solo cuando haya conexión.</div>' : ''}
       ${campo('Cantidad', m.cantidad)}
+      ${m.tipo === 'Salida' ? campo('Sector destino', m.sector || '—') : ''}
       ${campo('Stock resultante', m.stockResultante)}
       ${campo('Usuario', m.usuario || '—')}
       ${campo('Motivo', m.motivo || '—')}
