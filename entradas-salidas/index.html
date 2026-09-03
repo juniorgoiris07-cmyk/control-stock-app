@@ -477,6 +477,7 @@
   const CANTIDAD_RECIENTES = 8;
 
   function escHtml_(v){ return (v == null ? '' : String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function formatMoney_(v){ return '$' + Number(v||0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function escAttr_(v){ return escHtml_(v); }
 
   function claveOrdenMov_(m){
@@ -510,7 +511,7 @@
         <div class="reciente-tipo ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}</div>
         <div class="reciente-info">
           <div class="reciente-top"><span class="nom">${escHtml_(nombre)}</span>${tag}</div>
-          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}${m.sector ? ' · '+escHtml_(m.sector) : ''}</span><span>${fechaTxt}</span></div>
+          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}${m.sector ? ' · '+escHtml_(m.sector) : ''}${m.costoTotal ? ' · '+formatMoney_(m.costoTotal) : ''}</span><span>${fechaTxt}</span></div>
         </div>
         <button type="button" class="reciente-delete" ${dataAttrs} data-resumen="${escAttr_(m.tipo + ' de ' + nombre)}" title="Eliminar" aria-label="Eliminar">✕</button>
       </div>`;
