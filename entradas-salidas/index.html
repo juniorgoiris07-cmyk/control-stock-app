@@ -186,6 +186,19 @@
             </div>
           </div>
 
+          <div class="field hidden" id="sector-field">
+            <label>Sector destino</label>
+            <select id="c-sector">
+              <option value="">Seleccioná un sector...</option>
+              <option value="Planta">Planta</option>
+              <option value="Cocina">Cocina</option>
+              <option value="Oficina">Oficina</option>
+              <option value="Prelimpieza">Prelimpieza</option>
+              <option value="Patio">Patio</option>
+              <option value="Exportación">Exportación</option>
+            </select>
+          </div>
+
           <div class="field">
             <label>Cantidad</label>
             <input type="number" id="c-cantidad" min="0.01" step="any" inputmode="decimal" required>
@@ -231,6 +244,18 @@
           <div class="tab" id="e-tab-entrada" onclick="elegirTipoEdicion('Entrada')">Entrada</div>
           <div class="tab" id="e-tab-salida" onclick="elegirTipoEdicion('Salida')">Salida</div>
         </div>
+      </div>
+      <div class="field hidden" id="e-sector-field">
+        <label>Sector destino</label>
+        <select id="e-sector">
+          <option value="">Seleccioná un sector...</option>
+          <option value="Planta">Planta</option>
+          <option value="Cocina">Cocina</option>
+          <option value="Oficina">Oficina</option>
+          <option value="Prelimpieza">Prelimpieza</option>
+          <option value="Patio">Patio</option>
+          <option value="Exportación">Exportación</option>
+        </select>
       </div>
       <div class="field">
         <label>Cantidad</label>
@@ -382,6 +407,8 @@
     tipoActual = t;
     document.getElementById('tab-entrada').className = 'tab' + (t==='Entrada' ? ' activo-entrada' : '');
     document.getElementById('tab-salida').className = 'tab' + (t==='Salida' ? ' activo-salida' : '');
+    document.getElementById('sector-field').classList.toggle('hidden', t !== 'Salida');
+    if(t !== 'Salida') document.getElementById('c-sector').value = '';
     mostrarInfoStock();
   }
 
@@ -483,7 +510,7 @@
         <div class="reciente-tipo ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}</div>
         <div class="reciente-info">
           <div class="reciente-top"><span class="nom">${escHtml_(nombre)}</span>${tag}</div>
-          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}</span><span>${fechaTxt}</span></div>
+          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}${m.sector ? ' · '+escHtml_(m.sector) : ''}</span><span>${fechaTxt}</span></div>
         </div>
         <button type="button" class="reciente-delete" ${dataAttrs} data-resumen="${escAttr_(m.tipo + ' de ' + nombre)}" title="Eliminar" aria-label="Eliminar">✕</button>
       </div>`;
@@ -542,6 +569,8 @@
     tipoEdicionActual = t;
     document.getElementById('e-tab-entrada').className = 'tab' + (t==='Entrada' ? ' activo-entrada' : '');
     document.getElementById('e-tab-salida').className = 'tab' + (t==='Salida' ? ' activo-salida' : '');
+    document.getElementById('e-sector-field').classList.toggle('hidden', t !== 'Salida');
+    if(t !== 'Salida') document.getElementById('e-sector').value = '';
   }
 
   function abrirEdicion(id, localId){
@@ -564,6 +593,7 @@
 
     llenarSelectItems_('e-item', m.codigo);
     elegirTipoEdicion(m.tipo || 'Entrada');
+    document.getElementById('e-sector').value = m.sector || '';
     document.getElementById('e-cantidad').value = m.cantidad != null ? m.cantidad : '';
     document.getElementById('e-usuario').value = m.usuario || '';
     document.getElementById('e-motivo').value = m.motivo || '';
@@ -582,6 +612,7 @@
     return {
       codigo: document.getElementById('e-item').value,
       tipo: tipoEdicionActual,
+      sector: document.getElementById('e-sector').value,
       cantidad: Number(document.getElementById('e-cantidad').value),
       usuario: document.getElementById('e-usuario').value.trim(),
       motivo: document.getElementById('e-motivo').value.trim()
@@ -596,6 +627,7 @@
     const fields = leerCamposEdicion_();
     if(!fields.codigo){ err.textContent = 'Elegí un ítem.'; err.style.display = 'block'; return; }
     if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
+    if(fields.tipo === 'Salida' && !fields.sector){ err.textContent = 'Elegí a qué sector va el producto.'; err.style.display = 'block'; return; }
 
     if(EDITANDO.localId){
       const pendientes = getPendientes();
@@ -665,6 +697,7 @@
     return {
       codigo: document.getElementById('c-item').value,
       tipo: tipoActual,
+      sector: document.getElementById('c-sector').value,
       cantidad: Number(document.getElementById('c-cantidad').value),
       usuario: document.getElementById('c-usuario').value.trim(),
       motivo: document.getElementById('c-motivo').value.trim()
@@ -685,6 +718,7 @@
     const fields = leerCampos_();
     if(!fields.codigo){ err.textContent = 'Elegí un ítem.'; err.style.display = 'block'; return; }
     if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
+    if(fields.tipo === 'Salida' && !fields.sector){ err.textContent = 'Elegí a qué sector va el producto.'; err.style.display = 'block'; return; }
 
     btn.disabled = true; btn.textContent = 'Guardando...';
     try{
