@@ -120,6 +120,13 @@
   .modal-close:hover{background:var(--gridline);}
   .modal-title{font-size:17px;font-weight:700;margin:0 0 2px;padding-right:34px;letter-spacing:-.01em;}
   .modal-subtitle{font-size:12.5px;color:var(--text-secondary);margin:0 0 16px;}
+  .confirm-card{max-width:340px;}
+  .confirm-msg{font-size:14px;color:var(--text-primary);line-height:1.5;margin:0 0 18px;}
+  .confirm-actions{display:flex;gap:10px;}
+  .btn-cancel{flex:1;padding:12px;border:1px solid var(--gridline);border-radius:9px;background:var(--surface-2);color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;transition:background-color .15s ease;}
+  .btn-cancel:hover{background:var(--gridline);}
+  .btn-danger{flex:1;padding:12px;border:none;border-radius:9px;background:var(--critical);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:filter .15s ease;}
+  .btn-danger:hover{filter:brightness(0.92);}
 </style>
 </head>
 <body>
@@ -271,6 +278,20 @@
       </div>
       <button type="submit" class="submit-btn" id="edit-save-btn">Guardar cambios</button>
     </form>
+  </div>
+</div>
+
+<!-- Confirmación de borrado: reemplaza al confirm() nativo del navegador,
+     que en algunos contextos (apps instaladas, ciertos navegadores/webviews)
+     puede comportarse de forma inconsistente o no aparecer. -->
+<div class="modal-overlay" id="confirm-modal" onclick="if(event.target===this) resolverConfirmacion_(false)">
+  <div class="modal-card confirm-card">
+    <div class="modal-title">Eliminar movimiento</div>
+    <p class="confirm-msg" id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button type="button" class="btn-cancel" onclick="resolverConfirmacion_(false)">Cancelar</button>
+      <button type="button" class="btn-danger" onclick="resolverConfirmacion_(true)">Eliminar</button>
+    </div>
   </div>
 </div>
 
@@ -524,6 +545,20 @@
     return f || '';
   }
 
+  // ---------- modal de confirmación (reemplaza confirm() nativo) ----------
+  let RESOLVER_CONFIRMACION_ = null;
+
+  function confirmarEliminar_(mensaje){
+    document.getElementById('confirm-msg').textContent = mensaje;
+    document.getElementById('confirm-modal').classList.add('visible');
+    return new Promise(resolve => { RESOLVER_CONFIRMACION_ = resolve; });
+  }
+
+  function resolverConfirmacion_(valor){
+    document.getElementById('confirm-modal').classList.remove('visible');
+    if(RESOLVER_CONFIRMACION_){ RESOLVER_CONFIRMACION_(valor); RESOLVER_CONFIRMACION_ = null; }
+  }
+
   document.getElementById('recientes-list').addEventListener('click', async function(e){
     const btn = e.target.closest('.reciente-delete');
     if(!btn){
@@ -534,7 +569,8 @@
     const id = btn.dataset.id;
     const localId = btn.dataset.localid;
     const resumen = btn.dataset.resumen || 'este movimiento';
-    if(!confirm(`¿Eliminar ${resumen}? No se puede deshacer.`)) return;
+    const confirmado = await confirmarEliminar_(`¿Eliminar ${resumen}? No se puede deshacer.`);
+    if(!confirmado) return;
 
     if(localId){
       setPendientes(getPendientes().filter(p => p.localId !== localId));
@@ -850,7 +886,10 @@
   }
 
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') cerrarModalEdicion();
+    if(e.key === 'Escape'){
+      cerrarModalEdicion();
+      if(document.getElementById('confirm-modal').classList.contains('visible')) resolverConfirmacion_(false);
+    }
   });
 
   // ---------- service worker: permite abrir la app sin conexión ----------
