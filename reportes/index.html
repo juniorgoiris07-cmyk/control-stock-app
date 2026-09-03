@@ -133,6 +133,14 @@
   .filtros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
   .filtros .full{grid-column:1/-1;}
 
+  .costos-tabla-wrap{overflow-x:auto;border:1px solid var(--gridline);border-radius:10px;background:var(--card);box-shadow:var(--shadow-sm);}
+  table.costos-tabla{width:100%;border-collapse:collapse;font-size:13px;}
+  table.costos-tabla th, table.costos-tabla td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--gridline);white-space:nowrap;}
+  table.costos-tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-weight:700;background:var(--surface-2);}
+  table.costos-tabla td.num, table.costos-tabla th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.costos-tabla tbody tr:last-child td{border-bottom:none;}
+  table.costos-tabla tfoot td{font-weight:700;border-top:2px solid var(--gridline);border-bottom:none;background:var(--surface-2);}
+
   .modal-overlay{position:fixed;inset:0;background:rgba(20,20,15,0.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s ease,visibility 0s linear .22s;}
   .modal-overlay.visible{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .22s ease,visibility 0s linear 0s;}
   .modal-card{background:var(--card);border-radius:14px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;padding:20px;position:relative;box-shadow:0 16px 40px rgba(20,20,15,0.22);transform:translateY(16px) scale(.96);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease;}
@@ -201,6 +209,7 @@
       <div class="vista-selector" id="vista-selector">
         <button type="button" class="vista-btn" data-vista="stock">Stock actual</button>
         <button type="button" class="vista-btn" data-vista="historial">Historial de movimientos</button>
+        <button type="button" class="vista-btn" data-vista="costos">Costos por sector</button>
       </div>
 
       <div id="vista-stock">
@@ -264,6 +273,30 @@
           <button class="export-btn" onclick="recargarDatos()">Actualizar</button>
         </div>
         <div class="historial-list" id="historial-list"></div>
+      </div>
+
+      <div id="vista-costos" class="hidden">
+        <div class="filtros" style="grid-template-columns:1fr;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Mes</label>
+            <select id="c-mes">
+              <option value="">Todos los meses</option>
+            </select>
+          </div>
+        </div>
+        <div class="resumen" id="costos-resumen"></div>
+        <div class="toolbar">
+          <div class="grid-meta" id="costos-meta"></div>
+          <button class="export-btn" onclick="exportarCostosCSV()">Exportar CSV</button>
+        </div>
+        <div class="costos-tabla-wrap">
+          <table class="costos-tabla" id="costos-tabla">
+            <thead>
+              <tr><th>Mes</th><th>Sector</th><th class="num">Costo total</th></tr>
+            </thead>
+            <tbody id="costos-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
@@ -381,7 +414,9 @@
     document.querySelectorAll('.vista-btn').forEach(b=> b.classList.toggle('activa', b.dataset.vista===v));
     document.getElementById('vista-stock').classList.toggle('hidden', v!=='stock');
     document.getElementById('vista-historial').classList.toggle('hidden', v!=='historial');
+    document.getElementById('vista-costos').classList.toggle('hidden', v!=='costos');
     if(v==='historial') renderHistorial();
+    else if(v==='costos') renderCostos();
     else renderStock();
   }
   document.querySelectorAll('.vista-btn').forEach(b=>{
@@ -425,11 +460,14 @@
   }
 
   function renderTodo(){
-    if(vistaActual==='historial') renderHistorial(); else renderStock();
+    if(vistaActual==='historial') renderHistorial();
+    else if(vistaActual==='costos') renderCostos();
+    else renderStock();
   }
 
   // ---------- vista Stock actual ----------
   function escHtml_(v){ return (v == null ? '' : String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function formatMoney_(v){ return '$' + Number(v||0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   const searchStockEl = document.getElementById('search-stock');
   const searchStockClearEl = document.getElementById('search-stock-clear');
@@ -502,6 +540,7 @@
       ${campo('Stock actual', `<span class="badge ${bajo?'bajo':'ok'}">${it.stockActual} ${escHtml_(it.unidad||'')}</span>`)}
       ${campo('Stock mínimo', it.stockMinimo + ' ' + escHtml_(it.unidad||''))}
       ${campo('Stock inicial', it.stockInicial + ' ' + escHtml_(it.unidad||''))}
+      ${campo('Precio unitario', it.precio ? formatMoney_(it.precio) : '—')}
       ${campo('Notas', it.notas || '—')}
     `;
     document.getElementById('item-modal').classList.add('visible');
@@ -580,7 +619,7 @@
       item.className = 'historial-item';
       item.innerHTML = `
         <div class="hi-top"><span>${escHtml_(m.nombre||m.codigo)}</span><span class="hi-fecha">${fechaVisual_(m.fechaHora)}</span></div>
-        <div class="hi-bottom"><span class="hi-cant ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}${m.cantidad} ${escHtml_(unidad)}${m.sector ? ' · '+escHtml_(m.sector) : ''}</span><span>${escHtml_(m.usuario||'—')}</span></div>
+        <div class="hi-bottom"><span class="hi-cant ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}${m.cantidad} ${escHtml_(unidad)}${m.sector ? ' · '+escHtml_(m.sector) : ''}${m.costoTotal ? ' · '+formatMoney_(m.costoTotal) : ''}</span><span>${escHtml_(m.usuario||'—')}</span></div>
       `;
       item.addEventListener('click', ()=> abrirModalMovimiento(m));
       cont.appendChild(item);
@@ -597,6 +636,7 @@
       ${pendiente ? '<div class="error-msg" style="display:block;background:var(--warning-bg);color:#8a6300;border-color:#8a6300;">Este cambio todavía no se subió a la planilla — se subirá solo cuando haya conexión.</div>' : ''}
       ${campo('Cantidad', m.cantidad)}
       ${m.tipo === 'Salida' ? campo('Sector destino', m.sector || '—') : ''}
+      ${m.tipo === 'Salida' && m.costoTotal ? campo('Costo', formatMoney_(m.costoTotal) + (m.precioUnitario ? ' <span style="color:var(--text-muted);font-weight:400;">(' + formatMoney_(m.precioUnitario) + '/u)</span>' : '')) : ''}
       ${campo('Stock resultante', m.stockResultante)}
       ${campo('Usuario', m.usuario || '—')}
       ${campo('Motivo', m.motivo || '—')}
@@ -606,6 +646,88 @@
     if(m.id) btn.addEventListener('click', ()=> activarEdicionMotivo(m));
     else { btn.disabled = true; btn.title = 'No se puede editar: falta el identificador del registro.'; }
     document.getElementById('item-modal').classList.add('visible');
+  }
+
+  // ---------- vista Costos por sector ----------
+  const NOMBRES_MES_ = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  function mesLegible_(aaaaMM){
+    const m = String(aaaaMM||'').match(/^(\d{4})-(\d{2})$/);
+    if(!m) return aaaaMM || '—';
+    const idx = Number(m[2]) - 1;
+    const nombre = NOMBRES_MES_[idx] || m[2];
+    return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + m[1];
+  }
+
+  document.getElementById('c-mes').addEventListener('change', renderCostos);
+
+  function poblarSelectMeses_(){
+    const sel = document.getElementById('c-mes');
+    const anterior = sel.value;
+    const meses = new Set();
+    MOVIMIENTOS.forEach(m=>{
+      if(m.tipo !== 'Salida') return;
+      const mes = String(m.fechaHora||'').slice(0,7);
+      if(/^\d{4}-\d{2}$/.test(mes)) meses.add(mes);
+    });
+    const ordenados = [...meses].sort().reverse();
+    sel.innerHTML = '<option value="">Todos los meses</option>' + ordenados.map(m=>
+      `<option value="${escHtml_(m)}">${escHtml_(mesLegible_(m))}</option>`
+    ).join('');
+    if(ordenados.includes(anterior)) sel.value = anterior;
+  }
+
+  let ULTIMO_AGRUPADO_COSTOS_ = [];
+  function renderCostos(){
+    poblarSelectMeses_();
+    const mesFiltro = document.getElementById('c-mes').value;
+
+    const salidas = MOVIMIENTOS.filter(m => m.tipo === 'Salida' && m.sector);
+    const filtradas = mesFiltro ? salidas.filter(m => String(m.fechaHora||'').slice(0,7) === mesFiltro) : salidas;
+
+    const grupos = {};
+    filtradas.forEach(m=>{
+      const mes = String(m.fechaHora||'').slice(0,7);
+      if(!/^\d{4}-\d{2}$/.test(mes)) return;
+      const clave = mes + '|' + m.sector;
+      if(!grupos[clave]) grupos[clave] = { mes, sector: m.sector, costo: 0, movimientos: 0 };
+      grupos[clave].costo += Number(m.costoTotal || 0);
+      grupos[clave].movimientos += 1;
+    });
+    const agrupados = Object.values(grupos).sort((a,b)=> b.mes.localeCompare(a.mes) || a.sector.localeCompare(b.sector));
+    ULTIMO_AGRUPADO_COSTOS_ = agrupados;
+
+    const totalGeneral = agrupados.reduce((acc,g)=> acc + g.costo, 0);
+    const sectoresDistintos = new Set(agrupados.map(g=>g.sector)).size;
+    document.getElementById('costos-resumen').innerHTML =
+      `<div class="stat"><div class="num">${formatMoney_(totalGeneral)}</div><div class="lbl">Costo total${mesFiltro ? ' · ' + escHtml_(mesLegible_(mesFiltro)) : ''}</div></div>` +
+      `<div class="stat"><div class="num">${sectoresDistintos}</div><div class="lbl">Sector(es) con gasto</div></div>`;
+
+    document.getElementById('costos-meta').textContent = agrupados.length
+      ? `${agrupados.length} fila(s).`
+      : '';
+
+    const tbody = document.getElementById('costos-tbody');
+    if(!agrupados.length){
+      tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No hay salidas con sector y costo cargado para este filtro.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = agrupados.map(g=>
+      `<tr><td>${escHtml_(mesLegible_(g.mes))}</td><td>${escHtml_(g.sector)}</td><td class="num">${formatMoney_(g.costo)}</td></tr>`
+    ).join('') + `<tr><td colspan="2" style="text-align:right;font-weight:700;">Total</td><td class="num" style="font-weight:700;">${formatMoney_(totalGeneral)}</td></tr>`;
+  }
+
+  function exportarCostosCSV(){
+    const filas = [['Mes','Sector','CostoTotal']];
+    ULTIMO_AGRUPADO_COSTOS_.forEach(g=>{
+      filas.push([mesLegible_(g.mes), g.sector, g.costo.toFixed(2)]);
+    });
+    const csv = filas.map(f => f.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'costos_por_sector_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
   }
 
   function activarEdicionMotivo(m){
