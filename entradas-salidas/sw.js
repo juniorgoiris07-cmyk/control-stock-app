@@ -5,13 +5,15 @@
 // interceptan acá (deben ir siempre a la red real) — la cola offline de
 // movimientos vive en index.html, no en el service worker.
 
-const CACHE_NAME = 'stock-entradas-salidas-v2';
+const CACHE_NAME = 'stock-entradas-salidas-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
+  './icons/icon-monochrome.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png'
 ];
