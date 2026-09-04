@@ -71,6 +71,7 @@
   .tab.activo-salida{border-color:var(--critical);background:var(--critical-bg);color:var(--critical);}
   .stock-info{background:var(--surface-2);border:1px solid var(--gridline);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;display:none;}
   .stock-info.bajo{background:var(--critical-bg);color:var(--critical);border-color:var(--critical);}
+  .cantidad-hint{font-size:12px;color:var(--text-muted);margin-top:6px;display:none;}
   .submit-btn{width:100%;padding:14px;border:none;border-radius:10px;background:var(--series-1);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;box-shadow:var(--shadow-sm);transition:filter .15s ease, transform .05s ease;}
   .submit-btn:hover:not(:disabled){filter:brightness(0.94);}
   .submit-btn:active:not(:disabled){filter:brightness(0.88);transform:translateY(1px);}
@@ -235,8 +236,9 @@
           </div>
 
           <div class="field">
-            <label>Cantidad</label>
+            <label id="c-cantidad-label">Cantidad</label>
             <input type="number" id="c-cantidad" min="0.01" step="any" inputmode="decimal" required>
+            <div class="cantidad-hint" id="c-cantidad-hint"></div>
           </div>
 
           <div class="field">
@@ -297,8 +299,9 @@
         </select>
       </div>
       <div class="field">
-        <label>Cantidad</label>
+        <label id="e-cantidad-label">Cantidad</label>
         <input type="number" id="e-cantidad" min="0.01" step="any" inputmode="decimal" required>
+        <div class="cantidad-hint" id="e-cantidad-hint"></div>
       </div>
       <div class="field">
         <label>Usuario</label>
@@ -584,7 +587,66 @@
       labelEl.textContent = 'Seleccioná un ítem...';
       labelEl.classList.add('item-picker-placeholder');
     }
+    // targetId es 'c-item' o 'e-item' — el prefijo ('c'/'e') identifica cuál
+    // par de campos Cantidad/hint hay que actualizar.
+    actualizarModoCantidad_(targetId.split('-')[0], codigo);
   }
+
+  // ---------- ítems por KG: se cargan en gramos, se guardan en KG ----------
+  // Algunos ítems (ej. HILO) tienen Unidad = "KG" en la hoja "Items" — para
+  // esos, en el piso se habla en gramos ("sacaron 300gm"), así que el campo
+  // Cantidad pide gramos y automáticamente se convierte a KG antes de
+  // mandarlo al backend (que sigue guardando todo en la unidad de siempre).
+  function esItemKg_(it){
+    return !!it && String(it.unidad || '').trim().toUpperCase() === 'KG';
+  }
+
+  function redondear_(v){
+    // Evita ruido de coma flotante (300/1000 = 0.3, no 0.29999999999999993).
+    return Math.round(v * 10000) / 10000;
+  }
+
+  // Convierte lo que el usuario tipeó en el campo Cantidad a la unidad en la
+  // que se guarda el stock: si el ítem es por KG, lo tipeado son gramos y se
+  // divide por 1000; para cualquier otro ítem, se manda tal cual.
+  function cantidadEnUnidadBase_(codigo, valorIngresado){
+    if(esItemKg_(ITEMS_POR_CODIGO[codigo])) return redondear_(valorIngresado / 1000);
+    return valorIngresado;
+  }
+
+  // Inversa: a partir de una cantidad ya guardada (en KG para los ítems por
+  // KG), arma el valor a mostrar en el campo Cantidad (en gramos).
+  function cantidadParaMostrar_(codigo, cantidadBase){
+    if(cantidadBase == null || cantidadBase === '') return cantidadBase;
+    if(esItemKg_(ITEMS_POR_CODIGO[codigo])) return redondear_(cantidadBase * 1000);
+    return cantidadBase;
+  }
+
+  function actualizarModoCantidad_(prefix, codigo){
+    const label = document.getElementById(prefix + '-cantidad-label');
+    const hint = document.getElementById(prefix + '-cantidad-hint');
+    if(!label || !hint) return;
+    const kg = esItemKg_(ITEMS_POR_CODIGO[codigo]);
+    label.textContent = kg ? 'Cantidad (en gramos)' : 'Cantidad';
+    if(kg){
+      hint.style.display = 'block';
+      actualizarHintGramos_(prefix);
+    } else {
+      hint.style.display = 'none';
+      hint.textContent = '';
+    }
+  }
+
+  function actualizarHintGramos_(prefix){
+    const hint = document.getElementById(prefix + '-cantidad-hint');
+    const input = document.getElementById(prefix + '-cantidad');
+    if(!hint || hint.style.display === 'none') return;
+    const gramos = Number(input.value);
+    hint.textContent = gramos > 0 ? ('= ' + redondear_(gramos / 1000) + ' KG') : 'Ingresá los gramos (ej: 300)';
+  }
+
+  document.getElementById('c-cantidad').addEventListener('input', () => actualizarHintGramos_('c'));
+  document.getElementById('e-cantidad').addEventListener('input', () => actualizarHintGramos_('e'));
 
   function llenarDatalistUsuarios_(movs){
     const vistos = new Set();
@@ -657,11 +719,17 @@
       const tag = m.__pendiente ? '<span class="reciente-pend-tag">Sin subir</span>' : '';
       const dataAttrs = m.__pendiente ? `data-localid="${escAttr_(m.__localId)}"` : `data-id="${escAttr_(m.id)}"`;
       const fechaTxt = fechaVisualCorta_(m.fechaHora);
+      // Los ítems por KG se cargan en gramos — se muestran igual acá, no en
+      // KG, para que coincida con lo que se tipeó (y con cómo se dice en el
+      // piso: "sacaron 300gm").
+      const cantidadTxt = esItemKg_(ITEMS_POR_CODIGO[m.codigo])
+        ? redondear_(m.cantidad * 1000) + ' g'
+        : m.cantidad + (ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : '');
       return `<div class="reciente-item${pend}" ${dataAttrs}>
         <div class="reciente-tipo ${esEntrada?'entrada':'salida'}">${esEntrada?'+':'−'}</div>
         <div class="reciente-info">
           <div class="reciente-top"><span class="nom">${escHtml_(nombre)}</span>${tag}</div>
-          <div class="reciente-bottom"><span>${m.tipo} · ${m.cantidad}${ITEMS_POR_CODIGO[m.codigo] ? ' '+escHtml_(ITEMS_POR_CODIGO[m.codigo].unidad||'') : ''}${m.sector ? ' · '+escHtml_(m.sector) : ''}${m.costoTotal ? ' · '+formatMoney_(m.costoTotal) : ''}</span><span>${fechaTxt}</span></div>
+          <div class="reciente-bottom"><span>${m.tipo} · ${cantidadTxt}${m.sector ? ' · '+escHtml_(m.sector) : ''}${m.costoTotal ? ' · '+formatMoney_(m.costoTotal) : ''}</span><span>${fechaTxt}</span></div>
         </div>
         <button type="button" class="reciente-delete" ${dataAttrs} data-resumen="${escAttr_(m.tipo + ' de ' + nombre)}" title="Eliminar" aria-label="Eliminar">✕</button>
       </div>`;
@@ -761,7 +829,8 @@
     actualizarLabelPicker_('e-item');
     elegirTipoEdicion(m.tipo || 'Entrada');
     document.getElementById('e-sector').value = m.sector || '';
-    document.getElementById('e-cantidad').value = m.cantidad != null ? m.cantidad : '';
+    document.getElementById('e-cantidad').value = m.cantidad != null ? cantidadParaMostrar_(m.codigo, m.cantidad) : '';
+    actualizarHintGramos_('e');
     document.getElementById('e-usuario').value = m.usuario || '';
     document.getElementById('e-motivo').value = m.motivo || '';
 
@@ -776,11 +845,12 @@
   }
 
   function leerCamposEdicion_(){
+    const codigo = document.getElementById('e-item').value;
     return {
-      codigo: document.getElementById('e-item').value,
+      codigo: codigo,
       tipo: tipoEdicionActual,
       sector: document.getElementById('e-sector').value,
-      cantidad: Number(document.getElementById('e-cantidad').value),
+      cantidad: cantidadEnUnidadBase_(codigo, Number(document.getElementById('e-cantidad').value)),
       usuario: document.getElementById('e-usuario').value.trim(),
       motivo: document.getElementById('e-motivo').value.trim()
     };
@@ -861,11 +931,12 @@
 
   // ---------- envío del formulario principal ----------
   function leerCampos_(){
+    const codigo = document.getElementById('c-item').value;
     return {
-      codigo: document.getElementById('c-item').value,
+      codigo: codigo,
       tipo: tipoActual,
       sector: document.getElementById('c-sector').value,
-      cantidad: Number(document.getElementById('c-cantidad').value),
+      cantidad: cantidadEnUnidadBase_(codigo, Number(document.getElementById('c-cantidad').value)),
       usuario: document.getElementById('c-usuario').value.trim(),
       motivo: document.getElementById('c-motivo').value.trim(),
       hora: document.getElementById('c-hora').value
@@ -875,6 +946,7 @@
   function limpiarParaSiguiente_(){
     document.getElementById('c-cantidad').value = '';
     document.getElementById('c-motivo').value = '';
+    actualizarHintGramos_('c');
     setHoraActual_();
     document.getElementById('c-cantidad').focus();
   }

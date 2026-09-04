@@ -5,7 +5,7 @@
 // interceptan acá (deben ir siempre a la red real) — la cola offline de
 // movimientos vive en index.html, no en el service worker.
 
-const CACHE_NAME = 'stock-entradas-salidas-v11';
+const CACHE_NAME = 'stock-entradas-salidas-v12';
 const ASSETS = [
   './',
   './index.html',
