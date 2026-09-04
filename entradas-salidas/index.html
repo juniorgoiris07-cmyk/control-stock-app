@@ -498,7 +498,7 @@
   const CANTIDAD_RECIENTES = 8;
 
   function escHtml_(v){ return (v == null ? '' : String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function formatMoney_(v){ return '$' + Number(v||0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function formatMoney_(v){ return 'Gs. ' + Number(v||0).toLocaleString('es-PY', { maximumFractionDigits: 0 }); }
   function escAttr_(v){ return escHtml_(v); }
 
   function claveOrdenMov_(m){
