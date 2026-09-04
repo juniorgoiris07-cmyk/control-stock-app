@@ -123,6 +123,25 @@
   .confirm-card{max-width:340px;}
   .confirm-msg{font-size:14px;color:var(--text-primary);line-height:1.5;margin:0 0 18px;}
   .confirm-actions{display:flex;gap:10px;}
+
+  .item-picker-btn{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface-1);color:var(--text-primary);font-size:15px;font-family:inherit;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;}
+  .item-picker-btn:hover{border-color:var(--series-1);}
+  .item-picker-btn:focus{outline:none;border-color:var(--series-1);box-shadow:0 0 0 3px rgba(var(--series-1-rgb),0.15);}
+  .item-picker-placeholder{color:var(--text-muted);}
+  .item-picker-chevron{color:var(--text-muted);font-size:12px;flex-shrink:0;}
+  .item-picker-card{max-width:440px;display:flex;flex-direction:column;max-height:82vh;}
+  .item-picker-search{margin-bottom:12px;}
+  .item-picker-list{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:2px;}
+  .item-picker-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--gridline);border-radius:9px;padding:11px 12px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;text-align:left;width:100%;font:inherit;color:inherit;appearance:none;-webkit-appearance:none;}
+  .item-picker-row:hover{border-color:var(--series-1);box-shadow:var(--shadow-md);}
+  .item-picker-row.seleccionado{border-color:var(--series-1);background:var(--gold-bg);}
+  .item-picker-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item-picker-nombre .cod{color:var(--text-muted);font-weight:600;margin-right:4px;}
+  .item-picker-nombre .nom{font-weight:700;color:var(--text-primary);}
+  .item-picker-stock{flex-shrink:0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;}
+  .item-picker-stock.ok{background:var(--good-bg);color:var(--good);}
+  .item-picker-stock.bajo{background:var(--critical-bg);color:var(--critical);}
+  .item-picker-empty{font-size:12.5px;color:var(--text-muted);padding:14px 4px;text-align:center;}
   .btn-cancel{flex:1;padding:12px;border:1px solid var(--gridline);border-radius:9px;background:var(--surface-2);color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;transition:background-color .15s ease;}
   .btn-cancel:hover{background:var(--gridline);}
   .btn-danger{flex:1;padding:12px;border:none;border-radius:9px;background:var(--critical);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:filter .15s ease;}
@@ -181,7 +200,11 @@
         <form id="mov-form">
           <div class="field">
             <label>Ítem</label>
-            <select id="c-item" required><option value="">Cargando ítems...</option></select>
+            <input type="hidden" id="c-item">
+            <button type="button" class="item-picker-btn" id="c-item-btn" onclick="abrirPickerItem('c-item')">
+              <span class="item-picker-placeholder" id="c-item-btn-label">Cargando ítems...</span>
+              <span class="item-picker-chevron">▾</span>
+            </button>
             <div class="stock-info" id="stock-info"></div>
           </div>
 
@@ -248,7 +271,11 @@
     <form id="edit-form">
       <div class="field">
         <label>Ítem</label>
-        <select id="e-item" required></select>
+        <input type="hidden" id="e-item">
+        <button type="button" class="item-picker-btn" id="e-item-btn" onclick="abrirPickerItem('e-item')">
+          <span class="item-picker-placeholder" id="e-item-btn-label">Seleccioná un ítem...</span>
+          <span class="item-picker-chevron">▾</span>
+        </button>
       </div>
       <div class="field">
         <label>Tipo de movimiento</label>
@@ -297,6 +324,19 @@
       <button type="button" class="btn-cancel" onclick="resolverConfirmacion_(false)">Cancelar</button>
       <button type="button" class="btn-danger" onclick="resolverConfirmacion_(true)">Eliminar</button>
     </div>
+  </div>
+</div>
+
+<!-- Selector de ítem: buscador + tarjetas tocables, en vez de un <select> con
+     un listado largo. Se reutiliza tanto para el formulario principal
+     (c-item) como para el de edición (e-item) — ITEM_PICKER_TARGET guarda a
+     cuál de los dos hay que aplicarle la elección. -->
+<div class="modal-overlay" id="item-picker-modal" onclick="if(event.target===this) cerrarPickerItem()">
+  <div class="modal-card item-picker-card">
+    <button class="modal-close" type="button" onclick="cerrarPickerItem()">✕</button>
+    <div class="modal-title">Elegí un ítem</div>
+    <input type="text" id="item-picker-search" class="item-picker-search" placeholder="Buscar por nombre o código..." autocomplete="off">
+    <div class="item-picker-list" id="item-picker-list"></div>
   </div>
 </div>
 
@@ -468,14 +508,82 @@
     return movs.map(m => porId[m.id] ? Object.assign({}, m, porId[m.id]) : m);
   }
 
-  function llenarSelectItems_(selectId, seleccionActual){
-    const sel = document.getElementById(selectId);
+  // ---------- selector de ítem: buscador + tarjetas tocables ----------
+  // Reemplaza al <select> nativo (el listado largo era poco práctico en el
+  // celular) — mismo patrón de tarjeta tocable que el resto de la app.
+  // c-item / e-item siguen siendo el input (ahora oculto) que guarda el
+  // código elegido; ITEM_PICKER_TARGET recuerda a cuál de los dos aplicar
+  // la elección hecha en el modal, que se comparte entre los dos formularios.
+  let ITEM_PICKER_TARGET = 'c-item';
+
+  function abrirPickerItem(targetId){
+    ITEM_PICKER_TARGET = targetId;
+    const buscador = document.getElementById('item-picker-search');
+    buscador.value = '';
+    renderPickerItems_('');
+    document.getElementById('item-picker-modal').classList.add('visible');
+    setTimeout(() => buscador.focus(), 50);
+  }
+
+  function cerrarPickerItem(){
+    document.getElementById('item-picker-modal').classList.remove('visible');
+  }
+
+  function renderPickerItems_(filtro){
+    const cont = document.getElementById('item-picker-list');
+    const q = filtro.trim().toLowerCase();
+    const actual = document.getElementById(ITEM_PICKER_TARGET).value;
     const codigos = Object.keys(ITEMS_POR_CODIGO).sort((a,b)=> (ITEMS_POR_CODIGO[a].nombre||'').localeCompare(ITEMS_POR_CODIGO[b].nombre||''));
-    sel.innerHTML = '<option value="">Seleccioná un ítem...</option>' + codigos.map(c=>{
+    const filtrados = codigos.filter(c=>{
+      if(!q) return true;
       const it = ITEMS_POR_CODIGO[c];
-      return `<option value="${escAttr_(c)}">${escHtml_(c)} - ${escHtml_(it.nombre)}</option>`;
+      return String(c).toLowerCase().includes(q) || (it.nombre||'').toLowerCase().includes(q);
+    });
+    if(!filtrados.length){
+      cont.innerHTML = '<div class="item-picker-empty">No se encontró ningún ítem.</div>';
+      return;
+    }
+    cont.innerHTML = filtrados.map(c=>{
+      const it = ITEMS_POR_CODIGO[c];
+      const bajo = it.stockActual <= it.stockMinimo;
+      const sel = String(c) === String(actual);
+      return `<button type="button" class="item-picker-row${sel ? ' seleccionado' : ''}" data-codigo="${escAttr_(c)}">
+        <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
+        <div class="item-picker-stock ${bajo ? 'bajo' : 'ok'}">${escHtml_(it.stockActual)} ${escHtml_(it.unidad||'')}</div>
+      </button>`;
     }).join('');
-    if(seleccionActual) sel.value = seleccionActual;
+  }
+
+  document.getElementById('item-picker-list').addEventListener('click', function(e){
+    const fila = e.target.closest('.item-picker-row');
+    if(!fila) return;
+    elegirItemPicker_(fila.dataset.codigo);
+  });
+
+  document.getElementById('item-picker-search').addEventListener('input', function(){
+    renderPickerItems_(this.value);
+  });
+
+  function elegirItemPicker_(codigo){
+    const target = document.getElementById(ITEM_PICKER_TARGET);
+    target.value = codigo;
+    target.dispatchEvent(new Event('change'));
+    actualizarLabelPicker_(ITEM_PICKER_TARGET);
+    cerrarPickerItem();
+  }
+
+  function actualizarLabelPicker_(targetId){
+    const labelEl = document.getElementById(targetId + '-btn-label');
+    if(!labelEl) return;
+    const codigo = document.getElementById(targetId).value;
+    const it = ITEMS_POR_CODIGO[codigo];
+    if(it){
+      labelEl.textContent = codigo + ' - ' + it.nombre;
+      labelEl.classList.remove('item-picker-placeholder');
+    } else {
+      labelEl.textContent = 'Seleccioná un ítem...';
+      labelEl.classList.add('item-picker-placeholder');
+    }
   }
 
   function llenarDatalistUsuarios_(movs){
@@ -492,8 +600,11 @@
     ITEMS_POR_CODIGO = {};
     items.forEach(it => { ITEMS_POR_CODIGO[it.codigo] = it; });
     ULTIMOS_MOVIMIENTOS = aplicarEdicionesPendientesLocal_(movimientos);
-    const seleccionPrevia = document.getElementById('c-item').value;
-    llenarSelectItems_('c-item', seleccionPrevia);
+    // Si el ítem elegido ya no existe en el catálogo (caso raro), se limpia
+    // en vez de dejar un código huérfano cargado en el formulario.
+    const codigoActual = document.getElementById('c-item').value;
+    if(codigoActual && !ITEMS_POR_CODIGO[codigoActual]) document.getElementById('c-item').value = '';
+    actualizarLabelPicker_('c-item');
     llenarDatalistUsuarios_(ULTIMOS_MOVIMIENTOS);
     mostrarInfoStock();
     renderRecientes();
@@ -646,7 +757,8 @@
       ? 'Todavía sin subir — se corrige en el teléfono.'
       : `${m.tipo} · ${m.nombre || m.codigo}`;
 
-    llenarSelectItems_('e-item', m.codigo);
+    document.getElementById('e-item').value = m.codigo || '';
+    actualizarLabelPicker_('e-item');
     elegirTipoEdicion(m.tipo || 'Entrada');
     document.getElementById('e-sector').value = m.sector || '';
     document.getElementById('e-cantidad').value = m.cantidad != null ? m.cantidad : '';
