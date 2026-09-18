@@ -243,7 +243,7 @@
 
           <div class="field">
             <label>Tu nombre</label>
-            <input type="text" id="c-usuario" list="lista-usuarios" autocomplete="off" placeholder="Quién carga el movimiento">
+            <input type="text" id="c-usuario" list="lista-usuarios" autocomplete="off" placeholder="Quién carga el movimiento" required>
             <datalist id="lista-usuarios"></datalist>
           </div>
 
@@ -305,7 +305,7 @@
       </div>
       <div class="field">
         <label>Usuario</label>
-        <input type="text" id="e-usuario" list="lista-usuarios" autocomplete="off">
+        <input type="text" id="e-usuario" list="lista-usuarios" autocomplete="off" required>
       </div>
       <div class="field">
         <label>Motivo / observación</label>
@@ -865,6 +865,7 @@
     if(!fields.codigo){ err.textContent = 'Elegí un ítem.'; err.style.display = 'block'; return; }
     if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
     if(fields.tipo === 'Salida' && !fields.sector){ err.textContent = 'Elegí a qué sector va el producto.'; err.style.display = 'block'; return; }
+    if(!fields.usuario){ err.textContent = 'Ingresá el usuario (quién hizo el movimiento).'; err.style.display = 'block'; return; }
 
     if(EDITANDO.localId){
       const pendientes = getPendientes();
@@ -961,6 +962,7 @@
     if(!fields.cantidad || fields.cantidad <= 0){ err.textContent = 'Ingresá una cantidad válida.'; err.style.display = 'block'; return; }
     if(fields.tipo === 'Salida' && !fields.sector){ err.textContent = 'Elegí a qué sector va el producto.'; err.style.display = 'block'; return; }
     if(!fields.hora){ err.textContent = 'Ingresá la hora del movimiento.'; err.style.display = 'block'; return; }
+    if(!fields.usuario){ err.textContent = 'Ingresá tu nombre (quién carga el movimiento).'; err.style.display = 'block'; return; }
 
     btn.disabled = true; btn.textContent = 'Guardando...';
     try{
