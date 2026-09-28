@@ -58,6 +58,8 @@
   .appbar-icon img{display:block;height:26px;width:auto;}
   header.appbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;color:#fff;}
   header.appbar p{margin:4px 0 0;color:rgba(255,255,255,0.78);font-size:12.5px;}
+  .appbar-settings-btn{flex-shrink:0;width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:background-color .15s ease;}
+  .appbar-settings-btn:hover{background:rgba(255,255,255,0.16);}
   section{padding:18px 16px 40px;}
   .card{background:var(--card);border:1px solid var(--gridline);border-radius:14px;padding:18px;box-shadow:var(--shadow-sm);}
   .field{margin-bottom:14px;}
@@ -211,6 +213,7 @@
             <p>Control general del stock y de los movimientos</p>
           </div>
         </div>
+        <button type="button" class="appbar-settings-btn" onclick="resetWebAppUrl()" title="Cambiar URL del backend" aria-label="Configuración">⚙️</button>
       </div>
     </header>
 
