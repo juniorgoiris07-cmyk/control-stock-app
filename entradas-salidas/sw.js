@@ -1,11 +1,12 @@
 // Service Worker de "Entradas y Salidas de Stock"
 // Objetivo: que la app ABRA instantáneamente aunque no haya señal, para
 // poder seguir registrando movimientos (quedan en cola y se suben solos).
-// Importante: las llamadas a la app web de Google Apps Script NUNCA se
-// interceptan acá (deben ir siempre a la red real) — la cola offline de
-// movimientos vive en index.html, no en el service worker.
+// Importante: las llamadas al backend (antes Google Apps Script, ahora
+// Supabase) NUNCA se interceptan acá (deben ir siempre a la red real) —
+// la cola offline de movimientos vive en index.html, no en el service
+// worker.
 
-const CACHE_NAME = 'stock-entradas-salidas-v13';
+const CACHE_NAME = 'stock-entradas-salidas-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -38,9 +39,12 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Nunca tocar la app web de Apps Script: siempre a la red, sin caché.
+  // Nunca tocar el backend: siempre a la red, sin caché. Se dejan ambos
+  // (Apps Script viejo y Supabase nuevo) por si algún teléfono todavía no
+  // actualizó la URL guardada.
   if (url.hostname.includes('script.google.com')) return;
   if (url.hostname.includes('script.googleusercontent.com')) return;
+  if (url.hostname.includes('supabase.co')) return;
   if (req.method !== 'GET') return;
 
   // Estrategia "stale-while-revalidate": responde al toque con lo que ya

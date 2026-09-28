@@ -147,6 +147,12 @@
   .btn-cancel:hover{background:var(--gridline);}
   .btn-danger{flex:1;padding:12px;border:none;border-radius:9px;background:var(--critical);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:filter .15s ease;}
   .btn-danger:hover{filter:brightness(0.92);}
+
+  .item-picker-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface-2);border:1px solid var(--gridline);}
+  .item-picker-thumb-placeholder{width:34px;height:34px;border-radius:8px;flex-shrink:0;background:var(--surface-2);border:1px solid var(--gridline);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:15px;}
+  .btn-nuevo-item{width:100%;padding:10px;border:1.5px dashed var(--series-1);border-radius:9px;background:var(--gold-bg);color:var(--series-1-ink);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:filter .15s ease;}
+  .btn-nuevo-item:hover{filter:brightness(0.97);}
+  .foto-preview{width:100%;max-height:140px;object-fit:contain;border-radius:9px;border:1px solid var(--gridline);margin-top:8px;display:none;background:var(--surface-2);}
 </style>
 </head>
 <body>
@@ -339,7 +345,64 @@
     <button class="modal-close" type="button" onclick="cerrarPickerItem()">✕</button>
     <div class="modal-title">Elegí un ítem</div>
     <input type="text" id="item-picker-search" class="item-picker-search" placeholder="Buscar por nombre o código..." autocomplete="off">
+    <button type="button" class="btn-nuevo-item" onclick="abrirCrearItem()">+ Crear ítem nuevo</button>
     <div class="item-picker-list" id="item-picker-list"></div>
+  </div>
+</div>
+
+<!-- Crear ítem nuevo: protegido con una clave simple que solo conoce Ju
+     (antes esto solo se podía hacer editando la planilla de Google
+     directamente). El resto de la app sigue sin login, igual que siempre. -->
+<div class="modal-overlay" id="crear-item-modal" onclick="if(event.target===this) cerrarCrearItem()">
+  <div class="modal-card">
+    <button class="modal-close" type="button" onclick="cerrarCrearItem()">✕</button>
+    <div class="modal-title">Crear ítem nuevo</div>
+    <div class="modal-subtitle">Necesitás la clave para crear ítems.</div>
+    <div class="error-msg" id="crear-item-error"></div>
+    <form id="crear-item-form">
+      <div class="field">
+        <label>Código</label>
+        <input type="text" id="ni-codigo" autocomplete="off" required>
+      </div>
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="ni-nombre" autocomplete="off" required>
+      </div>
+      <div class="field">
+        <label>Categoría (opcional)</label>
+        <input type="text" id="ni-categoria" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Unidad (opcional)</label>
+        <input type="text" id="ni-unidad" autocomplete="off" placeholder="Ej: UNIDAD, KG, PAQUETE DE 50...">
+      </div>
+      <div class="field">
+        <label>Stock inicial</label>
+        <input type="number" id="ni-stock-inicial" min="0" step="any" inputmode="decimal" value="0">
+      </div>
+      <div class="field">
+        <label>Stock mínimo</label>
+        <input type="number" id="ni-stock-minimo" min="0" step="any" inputmode="decimal" value="0">
+      </div>
+      <div class="field">
+        <label>Precio (opcional)</label>
+        <input type="number" id="ni-precio" min="0" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Notas (opcional)</label>
+        <textarea id="ni-notas" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label>Foto (opcional)</label>
+        <input type="file" id="ni-foto" accept="image/*" capture="environment">
+        <img id="ni-foto-preview" class="foto-preview" alt="Vista previa">
+      </div>
+      <div class="field">
+        <label>Clave</label>
+        <input type="password" id="ni-pin" inputmode="numeric" autocomplete="off" required>
+      </div>
+      <button type="submit" class="submit-btn" id="crear-item-btn">Crear ítem</button>
+    </form>
   </div>
 </div>
 
@@ -420,6 +483,35 @@
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'No se pudo eliminar el movimiento.');
+    return data;
+  }
+
+  // Crear ítem y subir foto: solo existen en el backend nuevo (Supabase).
+  // Si la app todavía apunta al backend viejo (Apps Script), el backend
+  // responde "Acción desconocida" — mensaje que se muestra tal cual.
+  async function crearItemRemoto(fields){
+    const url = getWebAppUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: 'crearItem' }, fields))
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo crear el ítem.');
+    return data;
+  }
+
+  async function subirImagenRemoto(codigo, imagenBase64, contentType){
+    const url = getWebAppUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'subirImagenItem', codigo, imagenBase64, contentType })
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo subir la foto.');
     return data;
   }
 
@@ -550,7 +642,11 @@
       const it = ITEMS_POR_CODIGO[c];
       const bajo = it.stockActual <= it.stockMinimo;
       const sel = String(c) === String(actual);
+      const miniatura = it.imagenUrl
+        ? `<img class="item-picker-thumb" src="${escAttr_(it.imagenUrl)}" alt="" loading="lazy">`
+        : `<span class="item-picker-thumb-placeholder">📦</span>`;
       return `<button type="button" class="item-picker-row${sel ? ' seleccionado' : ''}" data-codigo="${escAttr_(c)}">
+        ${miniatura}
         <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
         <div class="item-picker-stock ${bajo ? 'bajo' : 'ok'}">${escHtml_(it.stockActual)} ${escHtml_(it.unidad||'')}</div>
       </button>`;
@@ -792,6 +888,88 @@
         btn.disabled = false;
         showToast('No se pudo eliminar: ' + ex.message, true);
       }
+    }
+  });
+
+  // ---------- crear ítem nuevo (protegido con clave) ----------
+  function abrirCrearItem(){
+    cerrarPickerItem();
+    document.getElementById('crear-item-error').style.display = 'none';
+    document.getElementById('crear-item-form').reset();
+    document.getElementById('ni-foto-preview').style.display = 'none';
+    document.getElementById('ni-foto-preview').src = '';
+    const btn = document.getElementById('crear-item-btn');
+    btn.disabled = false; btn.textContent = 'Crear ítem';
+    document.getElementById('crear-item-modal').classList.add('visible');
+    setTimeout(() => document.getElementById('ni-codigo').focus(), 50);
+  }
+
+  function cerrarCrearItem(){
+    document.getElementById('crear-item-modal').classList.remove('visible');
+  }
+
+  document.getElementById('ni-foto').addEventListener('change', function(){
+    const file = this.files[0];
+    const preview = document.getElementById('ni-foto-preview');
+    if(!file){ preview.style.display = 'none'; preview.src = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => { preview.src = reader.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  });
+
+  function archivoABase64_(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById('crear-item-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const err = document.getElementById('crear-item-error');
+    err.style.display = 'none';
+    const codigo = document.getElementById('ni-codigo').value.trim();
+    const nombre = document.getElementById('ni-nombre').value.trim();
+    const pin = document.getElementById('ni-pin').value.trim();
+    if(!codigo || !nombre){ err.textContent = 'Completá el código y el nombre.'; err.style.display = 'block'; return; }
+    if(!pin){ err.textContent = 'Ingresá la clave.'; err.style.display = 'block'; return; }
+
+    const fields = {
+      pin,
+      codigo,
+      nombre,
+      categoria: document.getElementById('ni-categoria').value.trim(),
+      unidad: document.getElementById('ni-unidad').value.trim(),
+      stockInicial: Number(document.getElementById('ni-stock-inicial').value) || 0,
+      stockMinimo: Number(document.getElementById('ni-stock-minimo').value) || 0,
+      precio: Number(document.getElementById('ni-precio').value) || 0,
+      notas: document.getElementById('ni-notas').value.trim()
+    };
+
+    const btn = document.getElementById('crear-item-btn');
+    btn.disabled = true; btn.textContent = 'Creando...';
+    try{
+      await crearItemRemoto(fields);
+      const fotoFile = document.getElementById('ni-foto').files[0];
+      if(fotoFile){
+        try{
+          const base64 = await archivoABase64_(fotoFile);
+          await subirImagenRemoto(codigo, base64, fotoFile.type || 'image/jpeg');
+        }catch(exFoto){
+          showToast('El ítem se creó, pero la foto no se pudo subir: ' + exFoto.message, false, true);
+        }
+      }
+      await cargarDatos(true);
+      cerrarCrearItem();
+      elegirItemPicker_(codigo);
+      showToast('Ítem "' + nombre + '" creado');
+    }catch(ex){
+      err.textContent = ex.message;
+      err.style.display = 'block';
+    }finally{
+      btn.disabled = false; btn.textContent = 'Crear ítem';
     }
   });
 
