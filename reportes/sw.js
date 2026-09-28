@@ -5,7 +5,7 @@
 // la lógica de caché de datos y cola de ediciones sin conexión vive en
 // index.html, no en el service worker.
 
-const CACHE_NAME = 'stock-reportes-v13';
+const CACHE_NAME = 'stock-reportes-v14';
 const ASSETS = [
   './',
   './index.html',
