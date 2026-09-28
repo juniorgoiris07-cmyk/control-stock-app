@@ -58,8 +58,14 @@
   .appbar-icon img{display:block;height:26px;width:auto;}
   header.appbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;color:#fff;}
   header.appbar p{margin:4px 0 0;color:rgba(255,255,255,0.78);font-size:12.5px;}
+  .appbar-actions{display:flex;gap:8px;flex-shrink:0;position:relative;z-index:1;}
   .appbar-settings-btn{flex-shrink:0;width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:background-color .15s ease;}
   .appbar-settings-btn:hover{background:rgba(255,255,255,0.16);}
+  .item-picker-btn-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1;}
+  .item-picker-btn-left .item-picker-placeholder{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item-picker-btn-thumb{width:26px;height:26px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface-2);border:1px solid var(--gridline);}
+  .btn-cambiar-foto{flex-shrink:0;padding:7px 12px;border:1px solid var(--series-1);border-radius:20px;background:var(--gold-bg);color:var(--series-1-ink);font-size:12px;font-weight:700;cursor:pointer;}
+  .btn-cambiar-foto:hover{filter:brightness(0.97);}
   section{padding:18px 16px 40px;}
   .card{background:var(--card);border:1px solid var(--gridline);border-radius:14px;padding:18px;box-shadow:var(--shadow-sm);}
   .field{margin-bottom:14px;}
@@ -198,7 +204,10 @@
             <p>Registrá cada movimiento de stock apenas ocurre</p>
           </div>
         </div>
-        <button type="button" class="appbar-settings-btn" onclick="resetWebAppUrl()" title="Cambiar URL del backend" aria-label="Configuración">⚙️</button>
+        <div class="appbar-actions">
+          <button type="button" class="appbar-settings-btn" onclick="abrirGestionFotos()" title="Agregar o cambiar fotos de ítems existentes" aria-label="Fotos de ítems">📷</button>
+          <button type="button" class="appbar-settings-btn" onclick="resetWebAppUrl()" title="Cambiar URL del backend" aria-label="Configuración">⚙️</button>
+        </div>
       </div>
     </header>
 
@@ -212,7 +221,10 @@
             <label>Ítem</label>
             <input type="hidden" id="c-item">
             <button type="button" class="item-picker-btn" id="c-item-btn" onclick="abrirPickerItem('c-item')">
-              <span class="item-picker-placeholder" id="c-item-btn-label">Cargando ítems...</span>
+              <span class="item-picker-btn-left">
+                <img class="item-picker-btn-thumb hidden" id="c-item-btn-thumb" alt="">
+                <span class="item-picker-placeholder" id="c-item-btn-label">Cargando ítems...</span>
+              </span>
               <span class="item-picker-chevron">▾</span>
             </button>
             <div class="stock-info" id="stock-info"></div>
@@ -284,7 +296,10 @@
         <label>Ítem</label>
         <input type="hidden" id="e-item">
         <button type="button" class="item-picker-btn" id="e-item-btn" onclick="abrirPickerItem('e-item')">
-          <span class="item-picker-placeholder" id="e-item-btn-label">Seleccioná un ítem...</span>
+          <span class="item-picker-btn-left">
+            <img class="item-picker-btn-thumb hidden" id="e-item-btn-thumb" alt="">
+            <span class="item-picker-placeholder" id="e-item-btn-label">Seleccioná un ítem...</span>
+          </span>
           <span class="item-picker-chevron">▾</span>
         </button>
       </div>
@@ -408,6 +423,20 @@
     </form>
   </div>
 </div>
+
+<!-- Herramienta temporal para cargar fotos a los ítems que ya existen en
+     el catálogo (mientras no haya otra forma más prolija de hacerlo).
+     No pide clave: agregar/cambiar una foto no crea ni modifica stock. -->
+<div class="modal-overlay" id="fotos-modal" onclick="if(event.target===this) cerrarGestionFotos()">
+  <div class="modal-card item-picker-card">
+    <button class="modal-close" type="button" onclick="cerrarGestionFotos()">✕</button>
+    <div class="modal-title">Fotos de ítems</div>
+    <div class="modal-subtitle">Herramienta temporal para cargar la foto de los ítems que ya tenemos cargados.</div>
+    <input type="text" id="fotos-search" class="item-picker-search" placeholder="Buscar por nombre o código..." autocomplete="off">
+    <div class="item-picker-list" id="fotos-list"></div>
+  </div>
+</div>
+<input type="file" id="fotos-file-input" accept="image/*" capture="environment" class="hidden">
 
 <script>
   // ---------- almacenamiento local ----------
@@ -685,6 +714,11 @@
     } else {
       labelEl.textContent = 'Seleccioná un ítem...';
       labelEl.classList.add('item-picker-placeholder');
+    }
+    const thumbEl = document.getElementById(targetId + '-btn-thumb');
+    if(thumbEl){
+      if(it && it.imagenUrl){ thumbEl.src = it.imagenUrl; thumbEl.classList.remove('hidden'); }
+      else { thumbEl.src = ''; thumbEl.classList.add('hidden'); }
     }
     // targetId es 'c-item' o 'e-item' — el prefijo ('c'/'e') identifica cuál
     // par de campos Cantidad/hint hay que actualizar.
@@ -973,6 +1007,74 @@
       err.style.display = 'block';
     }finally{
       btn.disabled = false; btn.textContent = 'Crear ítem';
+    }
+  });
+
+  // ---------- fotos de ítems que ya existen (herramienta temporal) ----------
+  let FOTOS_CODIGO_ACTUAL = null;
+
+  function abrirGestionFotos(){
+    document.getElementById('fotos-search').value = '';
+    renderFotosList_('');
+    document.getElementById('fotos-modal').classList.add('visible');
+    setTimeout(() => document.getElementById('fotos-search').focus(), 50);
+  }
+
+  function cerrarGestionFotos(){
+    document.getElementById('fotos-modal').classList.remove('visible');
+  }
+
+  function renderFotosList_(filtro){
+    const cont = document.getElementById('fotos-list');
+    const q = filtro.trim().toLowerCase();
+    const codigos = Object.keys(ITEMS_POR_CODIGO).sort((a,b)=> (ITEMS_POR_CODIGO[a].nombre||'').localeCompare(ITEMS_POR_CODIGO[b].nombre||''));
+    const filtrados = codigos.filter(c=>{
+      if(!q) return true;
+      const it = ITEMS_POR_CODIGO[c];
+      return String(c).toLowerCase().includes(q) || (it.nombre||'').toLowerCase().includes(q);
+    });
+    if(!filtrados.length){
+      cont.innerHTML = '<div class="item-picker-empty">No se encontró ningún ítem.</div>';
+      return;
+    }
+    cont.innerHTML = filtrados.map(c=>{
+      const it = ITEMS_POR_CODIGO[c];
+      const miniatura = it.imagenUrl
+        ? `<img class="item-picker-thumb" src="${escAttr_(it.imagenUrl)}" alt="" loading="lazy">`
+        : `<span class="item-picker-thumb-placeholder">📦</span>`;
+      return `<div class="item-picker-row">
+        ${miniatura}
+        <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
+        <button type="button" class="btn-cambiar-foto" data-codigo="${escAttr_(c)}">${it.imagenUrl ? 'Cambiar' : 'Agregar'}</button>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('fotos-search').addEventListener('input', function(){ renderFotosList_(this.value); });
+
+  document.getElementById('fotos-list').addEventListener('click', function(e){
+    const btn = e.target.closest('.btn-cambiar-foto');
+    if(!btn) return;
+    FOTOS_CODIGO_ACTUAL = btn.dataset.codigo;
+    document.getElementById('fotos-file-input').click();
+  });
+
+  document.getElementById('fotos-file-input').addEventListener('change', async function(){
+    const file = this.files[0];
+    this.value = '';
+    if(!file || !FOTOS_CODIGO_ACTUAL) return;
+    const codigo = FOTOS_CODIGO_ACTUAL;
+    try{
+      showToast('Subiendo foto...');
+      const base64 = await archivoABase64_(file);
+      await subirImagenRemoto(codigo, base64, file.type || 'image/jpeg');
+      await cargarDatos(true);
+      renderFotosList_(document.getElementById('fotos-search').value);
+      actualizarLabelPicker_('c-item');
+      actualizarLabelPicker_('e-item');
+      showToast('Foto actualizada');
+    }catch(ex){
+      showToast('No se pudo subir la foto: ' + ex.message, true);
     }
   });
 
