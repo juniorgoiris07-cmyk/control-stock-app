@@ -6,7 +6,7 @@
 // la cola offline de movimientos vive en index.html, no en el service
 // worker.
 
-const CACHE_NAME = 'stock-entradas-salidas-v18';
+const CACHE_NAME = 'stock-entradas-salidas-v19';
 const ASSETS = [
   './',
   './index.html',

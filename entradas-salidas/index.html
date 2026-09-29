@@ -66,7 +66,7 @@
   .item-picker-btn-thumb{width:56px;height:56px;border-radius:9px;object-fit:cover;flex-shrink:0;background:var(--surface-2);border:1px solid var(--gridline);}
   .btn-cambiar-foto{flex-shrink:0;padding:7px 12px;border:1px solid var(--series-1);border-radius:20px;background:var(--gold-bg);color:var(--series-1-ink);font-size:12px;font-weight:700;cursor:pointer;}
   .btn-cambiar-foto:hover{filter:brightness(0.97);}
-  .item-row-actions{display:flex;gap:6px;flex-shrink:0;}
+  .item-row-actions{display:flex;gap:6px;flex-shrink:0;align-self:center;}
   .btn-icon-action{width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--gridline);background:var(--surface-2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .btn-icon-action:hover{filter:brightness(0.97);}
   .btn-icon-action.btn-editar-item{border-color:var(--series-1);background:var(--gold-bg);}
@@ -145,10 +145,11 @@
   .item-picker-card{max-width:440px;display:flex;flex-direction:column;max-height:82vh;}
   .item-picker-search{margin-bottom:12px;}
   .item-picker-list{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:2px;}
-  .item-picker-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--gridline);border-radius:9px;padding:11px 12px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;text-align:left;width:100%;font:inherit;color:inherit;appearance:none;-webkit-appearance:none;}
+  .item-picker-row{display:flex;align-items:flex-start;gap:10px;background:var(--card);border:1px solid var(--gridline);border-radius:9px;padding:11px 12px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;text-align:left;width:100%;font:inherit;color:inherit;appearance:none;-webkit-appearance:none;}
   .item-picker-row:hover{border-color:var(--series-1);box-shadow:var(--shadow-md);}
   .item-picker-row.seleccionado{border-color:var(--series-1);background:var(--gold-bg);}
-  .item-picker-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item-picker-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-top:2px;}
+  .item-picker-nombre{min-width:0;white-space:normal;overflow-wrap:break-word;line-height:1.32;}
   .item-picker-nombre .cod{color:var(--text-muted);font-weight:600;margin-right:4px;}
   .item-picker-nombre .nom{font-weight:700;color:var(--text-primary);}
   .item-picker-stock{flex-shrink:0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;}
@@ -745,8 +746,10 @@
         : `<span class="item-picker-thumb-placeholder">📦</span>`;
       return `<button type="button" class="item-picker-row${sel ? ' seleccionado' : ''}" data-codigo="${escAttr_(c)}">
         ${miniatura}
-        <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
-        <div class="item-picker-stock ${bajo ? 'bajo' : 'ok'}">${escHtml_(it.stockActual)} ${escHtml_(it.unidad||'')}</div>
+        <div class="item-picker-info">
+          <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
+          <div class="item-picker-stock ${bajo ? 'bajo' : 'ok'}">${escHtml_(it.stockActual)} ${escHtml_(it.unidad||'')}</div>
+        </div>
       </button>`;
     }).join('');
   }
