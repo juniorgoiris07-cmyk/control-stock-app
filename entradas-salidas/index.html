@@ -66,6 +66,10 @@
   .item-picker-btn-thumb{width:56px;height:56px;border-radius:9px;object-fit:cover;flex-shrink:0;background:var(--surface-2);border:1px solid var(--gridline);}
   .btn-cambiar-foto{flex-shrink:0;padding:7px 12px;border:1px solid var(--series-1);border-radius:20px;background:var(--gold-bg);color:var(--series-1-ink);font-size:12px;font-weight:700;cursor:pointer;}
   .btn-cambiar-foto:hover{filter:brightness(0.97);}
+  .item-row-actions{display:flex;gap:6px;flex-shrink:0;}
+  .btn-icon-action{width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--gridline);background:var(--surface-2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .btn-icon-action:hover{filter:brightness(0.97);}
+  .btn-icon-action.btn-editar-item{border-color:var(--series-1);background:var(--gold-bg);}
   section{padding:18px 16px 40px;}
   .card{background:var(--card);border:1px solid var(--gridline);border-radius:14px;padding:18px;box-shadow:var(--shadow-sm);}
   .field{margin-bottom:14px;}
@@ -205,7 +209,7 @@
           </div>
         </div>
         <div class="appbar-actions">
-          <button type="button" class="appbar-settings-btn" onclick="abrirGestionFotos()" title="Agregar o cambiar fotos de ítems existentes" aria-label="Fotos de ítems">📷</button>
+          <button type="button" class="appbar-settings-btn" onclick="abrirGestionFotos()" title="Fotos y datos de ítems existentes (stock mínimo, precio, etc.)" aria-label="Ítems">📷</button>
           <button type="button" class="appbar-settings-btn" onclick="resetWebAppUrl()" title="Cambiar URL del backend" aria-label="Configuración">⚙️</button>
         </div>
       </div>
@@ -424,19 +428,68 @@
   </div>
 </div>
 
-<!-- Herramienta temporal para cargar fotos a los ítems que ya existen en
-     el catálogo (mientras no haya otra forma más prolija de hacerlo).
-     No pide clave: agregar/cambiar una foto no crea ni modifica stock. -->
+<!-- Herramienta para gestionar los ítems ya existentes: cargar/cambiar su
+     foto y editar sus datos (stock mínimo, precio, categoría, etc.). -->
 <div class="modal-overlay" id="fotos-modal" onclick="if(event.target===this) cerrarGestionFotos()">
   <div class="modal-card item-picker-card">
     <button class="modal-close" type="button" onclick="cerrarGestionFotos()">✕</button>
-    <div class="modal-title">Fotos de ítems</div>
-    <div class="modal-subtitle">Herramienta temporal para cargar la foto de los ítems que ya tenemos cargados.</div>
+    <div class="modal-title">Ítems: fotos y datos</div>
+    <div class="modal-subtitle">Tocá 📷 para cambiar la foto o ✏️ para editar el nombre, stock mínimo, precio, etc.</div>
     <input type="text" id="fotos-search" class="item-picker-search" placeholder="Buscar por nombre o código..." autocomplete="off">
     <div class="item-picker-list" id="fotos-list"></div>
   </div>
 </div>
 <input type="file" id="fotos-file-input" accept="image/*" capture="environment" class="hidden">
+
+<!-- Editar un ítem ya existente (protegido con la misma clave que crear
+     ítems, porque toca datos reales de stock: mínimo, precio, etc.). -->
+<div class="modal-overlay" id="editar-item-modal" onclick="if(event.target===this) cerrarEditarItem()">
+  <div class="modal-card">
+    <button class="modal-close" type="button" onclick="cerrarEditarItem()">✕</button>
+    <div class="modal-title">Editar ítem</div>
+    <div class="modal-subtitle">Necesitás la clave para guardar los cambios.</div>
+    <div class="error-msg" id="editar-item-error"></div>
+    <form id="editar-item-form">
+      <div class="field">
+        <label>Código</label>
+        <input type="text" id="ei-codigo" disabled>
+      </div>
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="ei-nombre" autocomplete="off" required>
+      </div>
+      <div class="field">
+        <label>Categoría (opcional)</label>
+        <input type="text" id="ei-categoria" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Unidad (opcional)</label>
+        <input type="text" id="ei-unidad" autocomplete="off" placeholder="Ej: UNIDAD, KG, PAQUETE DE 50...">
+      </div>
+      <div class="field">
+        <label>Stock inicial</label>
+        <input type="number" id="ei-stock-inicial" min="0" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Stock mínimo</label>
+        <input type="number" id="ei-stock-minimo" min="0" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Precio (opcional)</label>
+        <input type="number" id="ei-precio" min="0" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Notas (opcional)</label>
+        <textarea id="ei-notas" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label>Clave</label>
+        <input type="password" id="ei-pin" inputmode="numeric" autocomplete="off" required>
+      </div>
+      <button type="submit" class="submit-btn" id="editar-item-btn">Guardar cambios</button>
+    </form>
+  </div>
+</div>
 
 <script>
   // ---------- almacenamiento local ----------
@@ -531,6 +584,19 @@
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'No se pudo crear el ítem.');
+    return data;
+  }
+
+  async function editarItemRemoto(fields){
+    const url = getWebAppUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: 'editarItem' }, fields))
+    });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'No se pudo editar el ítem.');
     return data;
   }
 
@@ -1045,7 +1111,10 @@
       return `<div class="item-picker-row">
         ${miniatura}
         <div class="item-picker-nombre"><span class="cod">${escHtml_(c)}</span><span class="nom">${escHtml_(it.nombre)}</span></div>
-        <button type="button" class="btn-cambiar-foto" data-codigo="${escAttr_(c)}">${it.imagenUrl ? 'Cambiar' : 'Agregar'}</button>
+        <div class="item-row-actions">
+          <button type="button" class="btn-icon-action btn-cambiar-foto" data-codigo="${escAttr_(c)}" title="${it.imagenUrl ? 'Cambiar foto' : 'Agregar foto'}" aria-label="Foto">📷</button>
+          <button type="button" class="btn-icon-action btn-editar-item" data-codigo="${escAttr_(c)}" title="Editar datos" aria-label="Editar">✏️</button>
+        </div>
       </div>`;
     }).join('');
   }
@@ -1053,10 +1122,17 @@
   document.getElementById('fotos-search').addEventListener('input', function(){ renderFotosList_(this.value); });
 
   document.getElementById('fotos-list').addEventListener('click', function(e){
-    const btn = e.target.closest('.btn-cambiar-foto');
-    if(!btn) return;
-    FOTOS_CODIGO_ACTUAL = btn.dataset.codigo;
-    document.getElementById('fotos-file-input').click();
+    const btnFoto = e.target.closest('.btn-cambiar-foto');
+    if(btnFoto){
+      FOTOS_CODIGO_ACTUAL = btnFoto.dataset.codigo;
+      document.getElementById('fotos-file-input').click();
+      return;
+    }
+    const btnEditar = e.target.closest('.btn-editar-item');
+    if(btnEditar){
+      abrirEditarItem(btnEditar.dataset.codigo);
+      return;
+    }
   });
 
   document.getElementById('fotos-file-input').addEventListener('change', async function(){
@@ -1075,6 +1151,69 @@
       showToast('Foto actualizada');
     }catch(ex){
       showToast('No se pudo subir la foto: ' + ex.message, true);
+    }
+  });
+
+  // ---------- editar los datos de un ítem ya existente ----------
+  function abrirEditarItem(codigo){
+    const it = ITEMS_POR_CODIGO[codigo];
+    if(!it) return;
+    document.getElementById('editar-item-error').style.display = 'none';
+    document.getElementById('ei-codigo').value = codigo;
+    document.getElementById('ei-nombre').value = it.nombre || '';
+    document.getElementById('ei-categoria').value = it.categoria || '';
+    document.getElementById('ei-unidad').value = it.unidad || '';
+    document.getElementById('ei-stock-inicial').value = it.stockInicial != null ? it.stockInicial : 0;
+    document.getElementById('ei-stock-minimo').value = it.stockMinimo != null ? it.stockMinimo : 0;
+    document.getElementById('ei-precio').value = it.precio || '';
+    document.getElementById('ei-notas').value = it.notas || '';
+    document.getElementById('ei-pin').value = '';
+    const btn = document.getElementById('editar-item-btn');
+    btn.disabled = false; btn.textContent = 'Guardar cambios';
+    document.getElementById('editar-item-modal').classList.add('visible');
+    setTimeout(() => document.getElementById('ei-nombre').focus(), 50);
+  }
+
+  function cerrarEditarItem(){
+    document.getElementById('editar-item-modal').classList.remove('visible');
+  }
+
+  document.getElementById('editar-item-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const err = document.getElementById('editar-item-error');
+    err.style.display = 'none';
+    const codigo = document.getElementById('ei-codigo').value.trim();
+    const nombre = document.getElementById('ei-nombre').value.trim();
+    const pin = document.getElementById('ei-pin').value.trim();
+    if(!nombre){ err.textContent = 'Completá el nombre.'; err.style.display = 'block'; return; }
+    if(!pin){ err.textContent = 'Ingresá la clave.'; err.style.display = 'block'; return; }
+
+    const fields = {
+      pin,
+      codigo,
+      nombre,
+      categoria: document.getElementById('ei-categoria').value.trim(),
+      unidad: document.getElementById('ei-unidad').value.trim(),
+      stockInicial: Number(document.getElementById('ei-stock-inicial').value) || 0,
+      stockMinimo: Number(document.getElementById('ei-stock-minimo').value) || 0,
+      precio: Number(document.getElementById('ei-precio').value) || 0,
+      notas: document.getElementById('ei-notas').value.trim()
+    };
+
+    const btn = document.getElementById('editar-item-btn');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try{
+      await editarItemRemoto(fields);
+      await cargarDatos(true);
+      renderFotosList_(document.getElementById('fotos-search').value);
+      actualizarLabelPicker_('c-item');
+      actualizarLabelPicker_('e-item');
+      cerrarEditarItem();
+      showToast('Ítem actualizado');
+    }catch(ex){
+      err.textContent = ex.message;
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Guardar cambios';
     }
   });
 
